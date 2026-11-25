@@ -1,0 +1,117 @@
+package com.pesca.pontos.ui
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.sp
+import com.pesca.pontos.AppTheme
+
+/** Cores da marca Ceva. */
+object Ceva {
+    val Mata = Color(0xFF10241B)
+    val Boia = Color(0xFFFF7A2E)
+    val Rio = Color(0xFF2E8C7A)
+    val Nevoa = Color(0xFFF4F6F1)
+}
+
+private val Padrao = lightColorScheme(
+    primary = Ceva.Mata,
+    onPrimary = Ceva.Nevoa,
+    primaryContainer = Color(0xFFE2E7E1),
+    onPrimaryContainer = Ceva.Mata,
+    secondary = Ceva.Boia,
+    onSecondary = Ceva.Mata,
+    secondaryContainer = Ceva.Boia,
+    onSecondaryContainer = Ceva.Mata,
+    tertiary = Ceva.Rio,
+    onTertiary = Color.White,
+    background = Ceva.Nevoa,
+    onBackground = Ceva.Mata,
+    surface = Ceva.Nevoa,
+    onSurface = Ceva.Mata,
+    surfaceVariant = Color(0xFFE2E7E1),
+    onSurfaceVariant = Color(0xFF55625B),
+    surfaceContainerLow = Color.White,
+    surfaceContainer = Color.White,
+    surfaceContainerHigh = Color.White,
+    outline = Color(0xFFCBD2CA),
+)
+
+private val Contraste = darkColorScheme(
+    primary = Color(0xFFFFE600),
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF222222),
+    onPrimaryContainer = Color.White,
+    secondary = Color.White,
+    onSecondary = Color.Black,
+    secondaryContainer = Color.White,
+    onSecondaryContainer = Color.Black,
+    tertiary = Color(0xFFFFE600),
+    onTertiary = Color.Black,
+    background = Color.Black,
+    onBackground = Color.White,
+    surface = Color.Black,
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF222222),
+    onSurfaceVariant = Color(0xFFE0E0E0),
+    surfaceContainerLow = Color(0xFF111111),
+    surfaceContainer = Color(0xFF111111),
+    surfaceContainerHigh = Color(0xFF1A1A1A),
+    outline = Color.White,
+)
+
+private val Noite = darkColorScheme(
+    primary = Color(0xFF7A1414),
+    onPrimary = Color(0xFFFFD6D2),
+    primaryContainer = Color(0xFF2A0C0B),
+    onPrimaryContainer = Color(0xFFFF8A80),
+    secondary = Color(0xFFB71C1C),
+    onSecondary = Color(0xFFFFD6D2),
+    secondaryContainer = Color(0xFFB71C1C),
+    onSecondaryContainer = Color(0xFFFFD6D2),
+    tertiary = Color(0xFFE5534B),
+    onTertiary = Color(0xFF120404),
+    background = Color(0xFF120404),
+    onBackground = Color(0xFFFF8A80),
+    surface = Color(0xFF120404),
+    onSurface = Color(0xFFFF8A80),
+    surfaceVariant = Color(0xFF2A0C0B),
+    onSurfaceVariant = Color(0xFFD9776E),
+    surfaceContainerLow = Color(0xFF1E0808),
+    surfaceContainer = Color(0xFF1E0808),
+    surfaceContainerHigh = Color(0xFF250A0A),
+    outline = Color(0xFF5A1A16),
+)
+
+private val BaseType = Typography()
+private val CevaType = BaseType.copy(
+    headlineSmall = BaseType.headlineSmall.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp),
+    headlineMedium = BaseType.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp),
+    titleLarge = BaseType.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+    labelLarge = BaseType.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
+)
+
+/** Estilo do nome "ceva" no topo do mapa. */
+val BrandStyle = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, letterSpacing = (-0.5).sp)
+
+@Composable
+fun CevaTheme(theme: AppTheme, bigText: Boolean, content: @Composable () -> Unit) {
+    val colors = when (theme) {
+        AppTheme.PADRAO -> Padrao
+        AppTheme.CONTRASTE -> Contraste
+        AppTheme.NOITE -> Noite
+    }
+    val d = LocalDensity.current
+    val density = if (bigText) Density(d.density, d.fontScale * 1.15f) else d
+    CompositionLocalProvider(LocalDensity provides density) {
+        MaterialTheme(colorScheme = colors, typography = CevaType, content = content)
+    }
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Ceva" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#10241B</item>
+        <item name="android:windowBackground">#F4F6F1</item>
+    </style>
+</resources>
