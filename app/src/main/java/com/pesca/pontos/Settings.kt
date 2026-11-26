@@ -59,6 +59,12 @@ class Settings(context: Context) {
         get() = prefs.getString("last_weather", null)
         set(v) { prefs.edit().putString("last_weather", v).apply() }
 
+    /** A tela de boas-vindas (permissões) já foi mostrada. */
+    var onboardingDone by mutableStateOf(prefs.getBoolean("onboarding_done", false))
+        private set
+
+    fun finishOnboarding() { onboardingDone = true; prefs.edit().putBoolean("onboarding_done", true).apply() }
+
     fun updateTheme(t: AppTheme) { theme = t; prefs.edit().putString("theme", t.name).apply() }
     fun updateBigText(v: Boolean) { bigText = v; prefs.edit().putBoolean("big_text", v).apply() }
     fun updateSatellite(v: Boolean) { satellite = v; prefs.edit().putBoolean("satellite", v).apply() }

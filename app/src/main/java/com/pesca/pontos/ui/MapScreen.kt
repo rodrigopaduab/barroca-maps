@@ -79,6 +79,21 @@ import com.pesca.pontos.SpotQr
 import com.pesca.pontos.data.Spot
 import com.pesca.pontos.data.SpotSummary
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import com.google.maps.android.compose.MarkerComposable
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberMarkerState
+import com.pesca.pontos.data.Trail
+import com.pesca.pontos.data.TrailMark
+import com.pesca.pontos.trail.Geo
+import com.pesca.pontos.trail.P
+import com.pesca.pontos.trail.Recording
+import com.pesca.pontos.trail.TrackRecorder
+import com.pesca.pontos.trail.TrailShare
+import kotlin.math.abs
 
 // Centro aproximado do Brasil, usado até o GPS responder
 private val BRASIL = LatLng(-15.8, -47.9)
@@ -97,12 +112,20 @@ fun MapScreen(
     val scope = rememberCoroutineScope()
     val spotsFlow = remember { repo.spots.observeAll() }
     val spots by spotsFlow.collectAsState(initial = emptyList())
+    val trailsFlow = remember { repo.trails.observeAll() }
+    val trails by trailsFlow.collectAsState(initial = emptyList())
+    val marksFlow = remember { repo.trails.observeAllMarks() }
+    val allMarks by marksFlow.collectAsState(initial = emptyList())
+    val recording by TrackRecorder.state.collectAsState()
 
     var hasPermission by remember { mutableStateOf(hasLocationPermission(context)) }
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var centeredOnce by rememberSaveable { mutableStateOf(false) }
     var locating by remember { mutableStateOf(false) }
     var myPos by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var compassMode by rememberSaveable { mutableStateOf(false) }
+    var toSave by remember { mutableStateOf<Recording?>(null) }
+    var followId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(BRASIL, 4f) }
 
@@ -110,9 +133,15 @@ fun MapScreen(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result -> hasPermission = result.values.any { it } }
 
-    // Leitor de QR: importa o ponto e abre o cadastro já preenchido para conferir
+    // Leitor de QR: ponto (abre o cadastro preenchido) ou caminho (pede confirmação)
     val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         val text = result.contents ?: return@rememberLauncherForActivityResult
+        if (TrailShare.isTrailQr(text)) {
+            val t = TrailShare.decodeQr(text)
+            if (t == null) Toast.makeText(context, "Não consegui ler esse caminho", Toast.LENGTH_LONG).show()
+            else repo.pendingTrailImport = t
+            return@rememberLauncherForActivityResult
+        }
         val shared = SpotQr.decode(text)
         if (shared == null) {
             Toast.makeText(context, "Esse QR code não é de um ponto de pesca", Toast.LENGTH_LONG).show()
@@ -122,29 +151,51 @@ fun MapScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (!hasPermission) {
-            permissionLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
-        }
+    // Pedido vindo da tela do ponto: seguir um caminho
+    LaunchedEffect(repo.followTrailId) {
+        repo.followTrailId?.let { followId = it; repo.followTrailId = null }
     }
 
-    // Posição para o painel de pescaria (GPS; sem GPS, o centro do mapa depois de mexer)
-    LaunchedEffect(hasPermission) {
-        if (hasPermission && myPos == null) currentLocation(context)?.let { myPos = it }
-    }
+    // Posição contínua do GPS (painel, seguir caminho, centralizar)
+    val live by rememberLocationUpdates(hasPermission, fast = followId != null || recording != null)
+    LaunchedEffect(live) { live?.let { myPos = it.lat to it.lng } }
 
     // Na primeira abertura, centraliza na posição atual
     LaunchedEffect(hasPermission) {
         if (hasPermission && !centeredOnce) {
             currentLocation(context)?.let { (lat, lng) ->
                 myPos = lat to lng
-                camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 14f))
+                camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 15f))
                 centeredOnce = true
             }
         }
     }
+
+    // Modo Bússola: o mapa gira conforme a direção do celular
+    val heading by rememberHeading(compassMode)
+    LaunchedEffect(heading, compassMode) {
+        val h = heading ?: return@LaunchedEffect
+        if (!compassMode) return@LaunchedEffect
+        val pos = camera.position
+        if (abs(((h - pos.bearing + 540f) % 360f) - 180f) < 2f) return@LaunchedEffect
+        camera.move(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(pos).bearing(h).build()))
+    }
+
+    // Caminho sendo seguido
+    val followTrail = trails.firstOrNull { it.id == followId }
+    val followSpot = followTrail?.spotId?.let { id -> spots.firstOrNull { it.id == id } }
+    val followPath = remember(followTrail?.id, followSpot?.id) {
+        followTrail?.let { t ->
+            val pts = Geo.decode(t.points)
+            // orienta o caminho para terminar no ponto (se o ponto estiver no começo, inverte)
+            val sp = followSpot
+            if (sp != null && pts.size >= 2 &&
+                Geo.dist(pts.first(), P(sp.latitude, sp.longitude)) < Geo.dist(pts.last(), P(sp.latitude, sp.longitude))
+            ) pts.reversed() else pts
+        }.orEmpty()
+    }
+    val followMarks = allMarks.filter { it.trailId == followId }
+    val progress = live?.let { me -> Geo.progress(followPath, P(me.lat, me.lng)) }
 
     Box(Modifier.fillMaxSize()) {
         GoogleMap(
@@ -155,13 +206,59 @@ fun MapScreen(
                 isMyLocationEnabled = hasPermission,
             ),
             uiSettings = MapUiSettings(
-                myLocationButtonEnabled = hasPermission,
+                myLocationButtonEnabled = false,
+                compassEnabled = false,
                 zoomControlsEnabled = false,
                 mapToolbarEnabled = false,
+                rotationGesturesEnabled = !compassMode,
             ),
-            contentPadding = PaddingValues(top = 88.dp, bottom = 110.dp),
-            onMapLongClick = { latLng -> onNewSpot(latLng.latitude, latLng.longitude) },
+            contentPadding = PaddingValues(top = 88.dp, bottom = 120.dp),
+            onMapLongClick = { latLng -> if (recording == null && followId == null) onNewSpot(latLng.latitude, latLng.longitude) },
         ) {
+            // caminhos salvos (finos) e o que está sendo seguido (destacado)
+            trails.forEach { t ->
+                key("trail-${t.id}") {
+                    val pts = remember(t.points) { Geo.decode(t.points).map { LatLng(it.lat, it.lng) } }
+                    if (t.id == followId) {
+                        Polyline(points = pts, color = Color.White, width = 22f, zIndex = 1f)
+                        Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 2f)
+                        progress?.let { pr ->
+                            val done = Geo.traveledPart(followPath, pr).map { LatLng(it.lat, it.lng) }
+                            if (done.size >= 2) Polyline(points = done, color = Color(0xFF8C968F), width = 12f, zIndex = 3f)
+                        }
+                    } else {
+                        Polyline(points = pts, color = Color.White.copy(alpha = 0.8f), width = 12f, zIndex = 1f)
+                        Polyline(points = pts, color = Ceva.Boia.copy(alpha = 0.85f), width = 6f, zIndex = 1.5f)
+                    }
+                }
+            }
+            // caminho sendo gravado
+            recording?.let { rec ->
+                if (rec.points.size >= 2) {
+                    val pts = rec.points.map { LatLng(it.lat, it.lng) }
+                    Polyline(points = pts, color = Color.White, width = 22f, zIndex = 4f)
+                    Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 5f)
+                }
+                rec.marks.forEachIndexed { i, m ->
+                    key("rec-mark-$i") {
+                        MarkerComposable(m.type, state = rememberMarkerState(position = LatLng(m.p.lat, m.p.lng)), anchor = Offset(0.5f, 0.5f), zIndex = 6f) {
+                            MarkBadge(m.type)
+                        }
+                    }
+                }
+            }
+            // marcações dos caminhos salvos
+            allMarks.forEach { m ->
+                key("mark-${m.id}") {
+                    MarkerComposable(
+                        m.type, m.id,
+                        state = rememberMarkerState(position = LatLng(m.latitude, m.longitude)),
+                        title = m.label,
+                        anchor = Offset(0.5f, 0.5f),
+                        zIndex = 6f,
+                    ) { MarkBadge(m.type) }
+                }
+            }
             spots.forEach { spot ->
                 key(spot.id) {
                     val markerState = remember(spot.latitude, spot.longitude) {
@@ -171,8 +268,9 @@ fun MapScreen(
                         state = markerState,
                         title = spot.name,
                         icon = pinIcon(spot.color),
+                        zIndex = 7f,
                         onClick = {
-                            selectedId = spot.id
+                            if (recording == null) selectedId = spot.id
                             true // não abre o balão padrão; mostramos o nosso cartão
                         },
                     )
@@ -180,7 +278,7 @@ fun MapScreen(
             }
         }
 
-        // Barra superior: marca, tipo de mapa, ler QR, configurações
+        // Barra superior: marca, tipo de mapa, busca, ler QR, configurações
         Surface(
             shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.94f),
@@ -223,77 +321,197 @@ fun MapScreen(
                     scanner.launch(
                         ScanOptions()
                             .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            .setPrompt("Aponte para o QR code do ponto")
+                            .setPrompt("Aponte para o QR code do ponto ou do caminho")
                             .setBeepEnabled(false)
                             .setOrientationLocked(false)
                     )
-                }) { Icon(Icons.Default.QrCodeScanner, "Ler QR code de um ponto") }
+                }) { Icon(Icons.Default.QrCodeScanner, "Ler QR code de ponto ou caminho") }
                 IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Configurações") }
             }
         }
 
-        // Painel de pescaria (retrátil), logo abaixo da barra do topo
-        val panelPos = myPos ?: camera.position.target.takeIf { camera.position.zoom > 6f }?.let { it.latitude to it.longitude }
-        FishingPanel(
-            lat = panelPos?.first,
-            lng = panelPos?.second,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(top = 84.dp),
-        )
+        // Faixa do topo (abaixo da barra): gravando / seguindo / painel de pescaria
+        val topMod = Modifier
+            .align(Alignment.TopStart)
+            .statusBarsPadding()
+            .padding(top = 84.dp)
+        when {
+            recording != null -> RecordingBanner(recording!!, Modifier.then(topMod).padding(start = 12.dp, end = 72.dp))
+            followTrail != null && progress != null -> Column(topMod.padding(start = 12.dp, end = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val nextPoint = followPath.getOrNull(progress.segment + 1)
+                val bearing = nextPoint?.let { np -> live?.let { me -> bearingTo(me, np) - camera.position.bearing } }
+                FollowTop(progress.remainingM, bearing, followSpot?.name ?: "o fim do caminho")
+                if (progress.offPathM > 50) OffPathBanner(progress.offPathM)
+            }
+            followTrail != null -> FollowTop(Geo.length(followPath), null, followSpot?.name ?: "o fim do caminho", Modifier.then(topMod).padding(start = 12.dp, end = 72.dp))
+            else -> {
+                val panelPos = myPos ?: camera.position.target.takeIf { camera.position.zoom > 6f }?.let { it.latitude to it.longitude }
+                FishingPanel(lat = panelPos?.first, lng = panelPos?.second, modifier = topMod)
+            }
+        }
 
+        // Bússola e centralizar (lado direito, abaixo da barra)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 20.dp)
-                .fillMaxWidth(),
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 84.dp, end = 12.dp),
         ) {
-            if (spots.isNotEmpty()) {
+            CompassButton(camera.position.bearing, compassMode) {
+                compassMode = !compassMode
+                if (!compassMode) scope.launch {
+                    camera.animate(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(camera.position).bearing(0f).build()))
+                }
+            }
+            CenterButton {
+                val pos = myPos
+                if (!hasPermission) {
+                    permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                } else if (pos != null) {
+                    scope.launch {
+                        val z = camera.position.zoom.coerceAtLeast(15f)
+                        camera.animate(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(camera.position).target(LatLng(pos.first, pos.second)).zoom(z).build()))
+                    }
+                } else {
+                    Toast.makeText(context, "Procurando o GPS...", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        // Parte de baixo
+        val bottomMod = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+        when {
+            recording != null -> RecordingControls(
+                rec = recording!!,
+                onMark = { type, label ->
+                    if (!TrackRecorder.addMark(type, label)) Toast.makeText(context, "Aguardando o GPS para marcar", Toast.LENGTH_SHORT).show()
+                },
+                onPause = { TrackRecorder.togglePause() },
+                onStop = { toSave = TrackRecorder.stop(context) },
+                modifier = bottomMod,
+            )
+            followTrail != null -> {
+                val traveled = progress?.traveledM ?: 0.0
+                val next = followMarks
+                    .map { it to Geo.alongPath(followPath, P(it.latitude, it.longitude)) }
+                    .filter { it.second > traveled + 5 }
+                    .minByOrNull { it.second }
+                    ?.let { it.first to (it.second - traveled) }
+                FollowBottom(followTrail.name, next, onStop = { followId = null }, modifier = bottomMod)
+            }
+            else -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 16.dp)
+                    .fillMaxWidth(),
+            ) {
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.88f),
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {
                     Text(
-                        "Ou segure o dedo no mapa para marcar",
+                        "Ou segure o dedo no mapa para marcar um ponto",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
-            }
-            Button(
-                onClick = {
-                    if (!hasPermission) {
-                        permissionLauncher.launch(
-                            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                        )
-                    } else if (!locating) {
-                        locating = true
-                        scope.launch {
-                            val pos = currentLocation(context)
-                            locating = false
-                            if (pos != null) onNewSpot(pos.first, pos.second)
-                            else Toast.makeText(context, "Não consegui pegar o GPS. Tente de novo ou segure o dedo no mapa.", Toast.LENGTH_LONG).show()
-                        }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = {
+                            if (!hasPermission) {
+                                permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                            } else if (!locating) {
+                                locating = true
+                                scope.launch {
+                                    val pos = currentLocation(context)
+                                    locating = false
+                                    if (pos != null) onNewSpot(pos.first, pos.second)
+                                    else Toast.makeText(context, "Não consegui pegar o GPS. Tente de novo ou segure o dedo no mapa.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.weight(1f).height(56.dp),
+                    ) {
+                        Icon(Icons.Default.AddLocationAlt, null)
+                        Text(if (locating) " GPS..." else " Marcar ponto", style = MaterialTheme.typography.labelLarge, maxLines = 1)
                     }
-                },
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp),
-            ) {
-                Icon(Icons.Default.AddLocationAlt, null)
-                Text(if (locating) "  Buscando GPS..." else "  Marcar onde estou", style = MaterialTheme.typography.labelLarge)
+                    Button(
+                        onClick = {
+                            if (!hasPermission) {
+                                permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                            } else {
+                                TrackRecorder.start(context)
+                            }
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Ceva.Mata, contentColor = Ceva.Nevoa),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.weight(1f).height(56.dp),
+                    ) {
+                        Box(Modifier.size(12.dp).background(Color(0xFFFF4D4D), CircleShape))
+                        Text("  Gravar caminho", style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    }
+                }
             }
         }
+    }
+
+    // Salvar caminho gravado
+    toSave?.let { rec ->
+        val last = rec.points.lastOrNull()
+        val suggested = last?.let { p -> spots.minByOrNull { Geo.dist(p, P(it.latitude, it.longitude)) }?.takeIf { Geo.dist(p, P(it.latitude, it.longitude)) < 300 }?.id }
+        SaveTrailDialog(
+            rec = rec,
+            spots = spots,
+            suggestedSpotId = suggested,
+            onSave = { name, spotId ->
+                toSave = null
+                scope.launch {
+                    repo.saveTrail(
+                        Trail(name = name, spotId = spotId, createdAt = rec.startedAt, durationMs = rec.elapsedMs(), distanceM = rec.distanceM, points = Geo.encode(rec.points)),
+                        rec.marks.map { TrailMark(trailId = 0, latitude = it.p.lat, longitude = it.p.lng, type = it.type, label = it.label, at = it.at) },
+                    )
+                    Toast.makeText(context, "Caminho salvo", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDiscard = { toSave = null },
+        )
+    }
+
+    // Caminho recebido por QR
+    repo.pendingTrailImport?.let { t ->
+        AlertDialog(
+            onDismissRequest = { repo.pendingTrailImport = null },
+            title = { Text("Receber caminho?") },
+            text = {
+                Text(
+                    "\"${t.name}\" · ${Geo.formatDistance(Geo.length(t.points))} · ${t.marks.size} marcações" +
+                        (t.spot?.let { "\nLeva ao ponto \"${it.name}\", que também será salvo se você ainda não tiver." } ?: "")
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    repo.pendingTrailImport = null
+                    scope.launch {
+                        val id = repo.importTrail(t)
+                        followId = null
+                        Toast.makeText(context, "Caminho salvo", Toast.LENGTH_SHORT).show()
+                        t.points.firstOrNull()?.let { p -> camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lng), 14f)) }
+                        if (id < 0) Unit
+                    }
+                }) { Text("Salvar caminho") }
+            },
+            dismissButton = { TextButton(onClick = { repo.pendingTrailImport = null }) { Text("Cancelar") } },
+        )
     }
 
     val selected = spots.firstOrNull { it.id == selectedId }
@@ -314,6 +532,16 @@ fun MapScreen(
             )
         }
     }
+}
+
+/** Direção (graus, 0 = norte) de "a" até "b". */
+private fun bearingTo(a: P, b: P): Float {
+    val lat1 = Math.toRadians(a.lat)
+    val lat2 = Math.toRadians(b.lat)
+    val dLng = Math.toRadians(b.lng - a.lng)
+    val y = kotlin.math.sin(dLng) * kotlin.math.cos(lat2)
+    val x = kotlin.math.cos(lat1) * kotlin.math.sin(lat2) - kotlin.math.sin(lat1) * kotlin.math.cos(lat2) * kotlin.math.cos(dLng)
+    return ((Math.toDegrees(kotlin.math.atan2(y, x)) + 360) % 360).toFloat()
 }
 
 /** Símbolo do Ceva desenhado em código: pino com a boia na água (o mesmo desenho do ícone). */

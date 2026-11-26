@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import com.pesca.pontos.data.Catch
 import com.pesca.pontos.data.Spot
+import com.pesca.pontos.data.Trail
+import com.pesca.pontos.data.TrailMark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -34,6 +36,8 @@ object Backup {
     suspend fun export(context: Context, repo: Repository, target: Uri, appVersion: String): Info = withContext(Dispatchers.IO) {
         val spots = repo.spots.listAll()
         val catches = repo.catches.listAll()
+        val trails = repo.trails.listAll()
+        val marks = repo.trails.listAllMarks()
         val photoFiles = (spots.flatMap { it.photos } + catches.flatMap { it.photos })
             .map(::File).filter { it.isFile }.distinctBy { it.name }
 
@@ -44,6 +48,18 @@ object Backup {
             put("createdAt", System.currentTimeMillis())
             put("spots", JSONArray(spots.map(::spotToJson)))
             put("catches", JSONArray(catches.map(::catchToJson)))
+            put("trails", JSONArray(trails.map { t ->
+                JSONObject().apply {
+                    put("id", t.id); put("name", t.name); put("spotId", t.spotId ?: JSONObject.NULL)
+                    put("createdAt", t.createdAt); put("durationMs", t.durationMs); put("distanceM", t.distanceM); put("points", t.points)
+                }
+            }))
+            put("marks", JSONArray(marks.map { m ->
+                JSONObject().apply {
+                    put("trailId", m.trailId); put("lat", m.latitude); put("lng", m.longitude)
+                    put("type", m.type); put("label", m.label); put("at", m.at)
+                }
+            }))
         }
 
         val out = context.contentResolver.openOutputStream(target)
@@ -117,8 +133,30 @@ object Backup {
             val catches = j.getJSONArray("catches").let { arr -> List(arr.length()) { catchFromJson(arr.getJSONObject(it), ::localPath) } }
                 .filter { it.spotId in spotIds }
 
+            val trails = j.optJSONArray("trails")?.let { arr ->
+                List(arr.length()) {
+                    val o = arr.getJSONObject(it)
+                    Trail(
+                        id = o.getLong("id"), name = o.getString("name"),
+                        spotId = if (o.isNull("spotId")) null else o.getLong("spotId").takeIf { s -> s in spotIds },
+                        createdAt = o.optLong("createdAt"), durationMs = o.optLong("durationMs"),
+                        distanceM = o.optDouble("distanceM", 0.0), points = o.getString("points"),
+                    )
+                }
+            }.orEmpty()
+            val trailIds = trails.map { it.id }.toSet()
+            val marks = j.optJSONArray("marks")?.let { arr ->
+                List(arr.length()) {
+                    val o = arr.getJSONObject(it)
+                    TrailMark(
+                        trailId = o.getLong("trailId"), latitude = o.getDouble("lat"), longitude = o.getDouble("lng"),
+                        type = o.optString("type", "TEXTO"), label = o.optString("label"), at = o.optLong("at"),
+                    )
+                }
+            }.orEmpty().filter { it.trailId in trailIds }
+
             // 2) troca os dados (transação: se falhar, nada muda)
-            repo.replaceAll(spots, catches)
+            repo.replaceAll(spots, catches, trails, marks)
 
             // 3) troca as fotos
             photosDir.listFiles()?.forEach { it.delete() }

@@ -8,11 +8,12 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Spot::class, Catch::class], version = 3, exportSchema = false)
+@Database(entities = [Spot::class, Catch::class, Trail::class, TrailMark::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun spotDao(): SpotDao
     abstract fun catchDao(): CatchDao
+    abstract fun trailDao(): TrailDao
 
     companion object {
         /** 0.1 -> 0.2: peixe principal e clima no ponto. Mantém tudo que já foi cadastrado. */
@@ -38,9 +39,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 0.3 -> 0.4: caminhos gravados pelo GPS e suas marcações. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `trails` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`spotId` INTEGER, `createdAt` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `distanceM` REAL NOT NULL, " +
+                        "`points` TEXT NOT NULL, FOREIGN KEY(`spotId`) REFERENCES `spots`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_trails_spotId` ON `trails` (`spotId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `trail_marks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `trailId` INTEGER NOT NULL, " +
+                        "`latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `type` TEXT NOT NULL, `label` TEXT NOT NULL, `at` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`trailId`) REFERENCES `trails`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_trail_marks_trailId` ON `trail_marks` (`trailId`)")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "pesca.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

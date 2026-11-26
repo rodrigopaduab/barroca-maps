@@ -24,7 +24,9 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { app.repo.fillMissingWeather() }
         setContent {
             CevaTheme(theme = settings.theme, bigText = settings.bigText) {
-                Surface(color = MaterialTheme.colorScheme.background) { AppNav() }
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    if (settings.onboardingDone) AppNav() else OnboardingScreen(onDone = { settings.finishOnboarding() })
+                }
             }
         }
     }
@@ -50,6 +52,7 @@ object Routes {
 @Composable
 fun AppNav() {
     val nav = rememberNavController()
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as PescaApp
     NavHost(navController = nav, startDestination = Routes.MAP) {
 
         composable(Routes.MAP) {
@@ -102,6 +105,10 @@ fun AppNav() {
                 onAddCatch = { nav.navigate(Routes.newCatch(id)) },
                 onOpenCatch = { catchId -> nav.navigate(Routes.editCatch(catchId)) },
                 onDeleted = { nav.popBackStack(Routes.MAP, inclusive = false) },
+                onFollowTrail = { trailId ->
+                    app.repo.followTrailId = trailId
+                    nav.popBackStack(Routes.MAP, inclusive = false)
+                },
             )
         }
 

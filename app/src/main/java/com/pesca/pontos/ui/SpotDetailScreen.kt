@@ -54,6 +54,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.pesca.pontos.Weather
+import com.pesca.pontos.data.Trail
+import com.pesca.pontos.data.TrailMark
+import com.pesca.pontos.trail.Geo
 import com.pesca.pontos.data.Catch
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.launch
@@ -68,6 +71,7 @@ fun SpotDetailScreen(
     onAddCatch: () -> Unit,
     onOpenCatch: (Long) -> Unit,
     onDeleted: () -> Unit,
+    onFollowTrail: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val repo = rememberRepo()
@@ -78,6 +82,10 @@ fun SpotDetailScreen(
     val catches by catchesFlow.collectAsState(initial = emptyList())
     var confirmDelete by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
+    val trailsFlow = remember(spotId) { repo.trails.observeForSpot(spotId) }
+    val trails by trailsFlow.collectAsState(initial = emptyList())
+    var qrTrail by remember { mutableStateOf<Pair<Trail, List<TrailMark>>?>(null) }
+    var deleteTrail by remember { mutableStateOf<Trail?>(null) }
 
     LaunchedEffect(spotId) { repo.fillMissingWeather() }
 
@@ -163,6 +171,40 @@ fun SpotDetailScreen(
                 }
             }
 
+            if (trails.isNotEmpty()) {
+                item {
+                    HorizontalDivider()
+                    Spacer(Modifier.size(8.dp))
+                    Text("Caminhos até aqui (${trails.size})", style = MaterialTheme.typography.titleMedium)
+                }
+                items(trails, key = { "t${it.id}" }) { t ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(t.name, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "${Geo.formatDistance(t.distanceM)} · ${t.durationMs / 60_000} min · gravado em ${formatDate(t.createdAt)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Button(
+                                    onClick = { onFollowTrail(t.id) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Seguir caminho") }
+                                IconButton(onClick = { scope.launch { qrTrail = t to repo.trails.marks(t.id) } }) {
+                                    Icon(Icons.Default.QrCode2, "Compartilhar caminho")
+                                }
+                                IconButton(onClick = { deleteTrail = t }) { Icon(Icons.Default.Delete, "Apagar caminho") }
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 HorizontalDivider()
                 Spacer(Modifier.size(8.dp))
@@ -186,6 +228,20 @@ fun SpotDetailScreen(
     }
 
     if (showQr) spot?.let { QrDialog(it) { showQr = false } }
+
+    qrTrail?.let { (t, marks) -> TrailQrDialog(t, marks, spot) { qrTrail = null } }
+
+    deleteTrail?.let { t ->
+        AlertDialog(
+            onDismissRequest = { deleteTrail = null },
+            title = { Text("Apagar caminho?") },
+            text = { Text("\"${t.name}\" e as marcações dele serão apagados.") },
+            confirmButton = {
+                TextButton(onClick = { deleteTrail = null; scope.launch { repo.trails.delete(t) } }) { Text("Apagar") }
+            },
+            dismissButton = { TextButton(onClick = { deleteTrail = null }) { Text("Cancelar") } },
+        )
+    }
 
     if (confirmDelete) {
         AlertDialog(

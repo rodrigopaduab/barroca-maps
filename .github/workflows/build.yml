@@ -34,6 +34,7 @@ jobs:
 
       - name: Compilar
         run: |
+          echo "::add-matcher::.github/kotlin-matcher.json"
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 

@@ -45,6 +45,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import com.pesca.pontos.AppTheme
 import com.pesca.pontos.Backup
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.pesca.pontos.Updates
 import kotlinx.coroutines.launch
 
@@ -102,6 +104,9 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             Section("Backup")
             BackupCard(version)
+
+            Section("Caminhos")
+            ImportTrailCard()
 
             Section("Mapa off-line")
             SettingsCard {
@@ -275,5 +280,39 @@ private fun BackupCard(version: String) {
             },
             dismissButton = { TextButton(onClick = { pending = null }) { Text("Cancelar") } },
         )
+    }
+}
+
+@Composable
+private fun ImportTrailCard() {
+    val context = LocalContext.current
+    val repo = rememberRepo()
+    val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf<String?>(null) }
+    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } }.getOrNull()
+            }
+            val t = text?.let { com.pesca.pontos.trail.TrailShare.decodeFile(it) }
+            message = if (t == null) "Esse arquivo não é um caminho do Ceva." else {
+                repo.importTrail(t)
+                "Caminho \"${t.name}\" recebido."
+            }
+        }
+    }
+    SettingsCard {
+        Text("Receber caminho por arquivo", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Abra aqui o arquivo de caminho que alguém te mandou (ceva-caminho-....json).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary) }
+        OutlinedButton(
+            onClick = { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+        ) { Text("Abrir arquivo de caminho") }
     }
 }
