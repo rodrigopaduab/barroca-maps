@@ -48,11 +48,11 @@ class Settings(context: Context) {
         prefs.edit().putStringSet("custom_fish", customFish.toSet()).apply()
     }
 
-    /** Painel de pescaria aberto ou recolhido. */
-    var panelOpen by mutableStateOf(prefs.getBoolean("panel_open", true))
+    /** Painel de pescaria aberto ou recolhido. Sempre começa recolhido ao abrir o app. */
+    var panelOpen by mutableStateOf(false)
         private set
 
-    fun updatePanelOpen(v: Boolean) { panelOpen = v; prefs.edit().putBoolean("panel_open", v).apply() }
+    fun updatePanelOpen(v: Boolean) { panelOpen = v }
 
     /** Último clima buscado para o painel (mostrado quando estiver sem internet). */
     var lastWeather: String?
