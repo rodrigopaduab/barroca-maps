@@ -53,6 +53,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
@@ -71,6 +73,7 @@ fun SpotEditScreen(
 ) {
     val context = LocalContext.current
     val repo = rememberRepo()
+    val settings = rememberSettings()
     val scope = rememberCoroutineScope()
 
     var loaded by rememberSaveable { mutableStateOf(spotId == null) }
@@ -96,7 +99,7 @@ fun SpotEditScreen(
 
     LaunchedEffect(spotId) {
         val mine = repo.spots.listAll().map { it.mainFish } + repo.catches.allSpecies()
-        fishOptions = (mine.filter { it.isNotBlank() } + COMMON_SPECIES).distinct()
+        fishOptions = (mine.filter { it.isNotBlank() } + COMMON_SPECIES).distinctBy { it.lowercase() }
         // Ponto vindo de um QR code: já chega preenchido
         if (spotId == null) {
             repo.pendingImport?.let { shared ->
@@ -238,11 +241,20 @@ fun SpotEditScreen(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                val allFish = (settings.customFish + fishOptions).distinctBy { it.lowercase() }
+                val typed = mainFish.trim()
+                if (typed.isNotEmpty() && allFish.none { it.equals(typed, ignoreCase = true) }) {
+                    AssistChip(
+                        onClick = { settings.addFish(typed) },
+                        label = { Text("Adicionar \"$typed\" à lista de peixes") },
+                        leadingIcon = { Icon(Icons.Default.Add, null) },
+                    )
+                }
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    fishOptions.forEach { sp ->
+                    allFish.forEach { sp ->
                         FilterChip(
                             selected = mainFish.equals(sp, ignoreCase = true),
                             onClick = { mainFish = if (mainFish.equals(sp, ignoreCase = true)) "" else sp },
@@ -306,6 +318,7 @@ fun SpotEditScreen(
                             weatherHumidity = w?.humidity ?: base.weatherHumidity,
                             weatherFetched = weatherFetched || base.weatherFetched,
                         )
+                        if (spot.mainFish.isNotEmpty()) settings.addFish(spot.mainFish)
                         val id = repo.saveSpot(spot, original?.photos ?: emptyList())
                         onSaved(id)
                     }

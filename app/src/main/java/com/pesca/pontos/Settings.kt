@@ -32,6 +32,22 @@ class Settings(context: Context) {
 
     fun markBackup(at: Long) { lastBackupAt = at; prefs.edit().putLong("last_backup", at).apply() }
 
+    /** Peixes que o usuário digitou e salvou na lista de atalhos. */
+    var customFish by mutableStateOf(prefs.getStringSet("custom_fish", emptySet())!!.sorted())
+        private set
+
+    fun addFish(name: String) {
+        val n = name.trim()
+        if (n.isEmpty() || customFish.any { it.equals(n, ignoreCase = true) }) return
+        customFish = (customFish + n).sorted()
+        prefs.edit().putStringSet("custom_fish", customFish.toSet()).apply()
+    }
+
+    fun removeFish(name: String) {
+        customFish = customFish.filterNot { it.equals(name, ignoreCase = true) }
+        prefs.edit().putStringSet("custom_fish", customFish.toSet()).apply()
+    }
+
     fun updateTheme(t: AppTheme) { theme = t; prefs.edit().putString("theme", t.name).apply() }
     fun updateBigText(v: Boolean) { bigText = v; prefs.edit().putBoolean("big_text", v).apply() }
     fun updateSatellite(v: Boolean) { satellite = v; prefs.edit().putBoolean("satellite", v).apply() }

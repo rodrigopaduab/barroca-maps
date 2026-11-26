@@ -65,6 +65,7 @@ fun CatchEditScreen(
 ) {
     val context = LocalContext.current
     val repo = rememberRepo()
+    val settings = rememberSettings()
     val scope = rememberCoroutineScope()
 
     var loaded by rememberSaveable { mutableStateOf(catchId == null) }
@@ -84,7 +85,7 @@ fun CatchEditScreen(
 
     LaunchedEffect(catchId) {
         val mine = repo.catches.allSpecies()
-        knownSpecies = (mine + COMMON_SPECIES).distinct()
+        knownSpecies = (settings.customFish + mine + COMMON_SPECIES).distinctBy { it.lowercase() }
         if (catchId != null) {
             val c = repo.catches.get(catchId) ?: return@LaunchedEffect onDone()
             original = c
@@ -233,6 +234,7 @@ fun CatchEditScreen(
                             released = released,
                             photos = photos,
                         )
+                        settings.addFish(c.species)
                         repo.saveCatch(c, original?.photos ?: emptyList())
                         onDone()
                     }
