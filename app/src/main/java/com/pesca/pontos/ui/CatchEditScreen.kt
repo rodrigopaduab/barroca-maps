@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 /** Espécies comuns em água doce no Brasil, para preencher com um toque. */
-private val COMMON_SPECIES = listOf(
+val COMMON_SPECIES = listOf(
     "Tucunaré", "Traíra", "Tilápia", "Pacu", "Dourado", "Pintado", "Piau",
     "Lambari", "Curimba", "Matrinxã", "Tambaqui", "Corvina", "Bagre", "Piranha",
 )

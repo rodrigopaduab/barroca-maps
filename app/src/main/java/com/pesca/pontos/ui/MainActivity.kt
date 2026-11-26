@@ -7,6 +7,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import com.pesca.pontos.PescaApp
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,7 +18,10 @@ import androidx.navigation.navArgument
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val settings = (application as PescaApp).settings
+        val app = application as PescaApp
+        val settings = app.settings
+        // Ao abrir o app, tenta completar o clima dos pontos marcados sem internet
+        lifecycleScope.launch { app.repo.fillMissingWeather() }
         setContent {
             CevaTheme(theme = settings.theme, bigText = settings.bigText) {
                 Surface(color = MaterialTheme.colorScheme.background) { AppNav() }
@@ -28,6 +33,7 @@ class MainActivity : ComponentActivity() {
 object Routes {
     const val MAP = "map"
     const val SETTINGS = "settings"
+    const val LIST = "list"
     const val NEW_SPOT = "newspot?lat={lat}&lng={lng}"
     const val SPOT = "spot/{spotId}"
     const val EDIT_SPOT = "spot/{spotId}/edit"
@@ -51,6 +57,14 @@ fun AppNav() {
                 onNewSpot = { lat, lng -> nav.navigate(Routes.newSpot(lat, lng)) },
                 onOpenSpot = { id -> nav.navigate(Routes.spot(id)) },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
+                onList = { nav.navigate(Routes.LIST) },
+            )
+        }
+
+        composable(Routes.LIST) {
+            SpotListScreen(
+                onBack = { nav.popBackStack() },
+                onOpenSpot = { id -> nav.navigate(Routes.spot(id)) },
             )
         }
 

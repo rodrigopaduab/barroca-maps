@@ -153,6 +153,10 @@ object Backup {
         put("id", s.id); put("name", s.name); put("notes", s.notes)
         put("lat", s.latitude); put("lng", s.longitude); put("color", s.color)
         put("createdAt", s.createdAt); put("photos", names(s.photos))
+        put("mainFish", s.mainFish)
+        put("weatherTemp", s.weatherTemp ?: JSONObject.NULL); put("weatherCode", s.weatherCode ?: JSONObject.NULL)
+        put("weatherWind", s.weatherWind ?: JSONObject.NULL); put("weatherHumidity", s.weatherHumidity ?: JSONObject.NULL)
+        put("weatherFetched", s.weatherFetched)
     }
 
     private fun spotFromJson(o: JSONObject, path: (String) -> String) = Spot(
@@ -164,6 +168,12 @@ object Backup {
         color = o.optInt("color"),
         createdAt = o.optLong("createdAt", System.currentTimeMillis()),
         photos = o.strings("photos").filter { SAFE_NAME.matches(it) }.map(path),
+        mainFish = o.optString("mainFish"),
+        weatherTemp = o.doubleOrNull("weatherTemp"),
+        weatherCode = o.doubleOrNull("weatherCode")?.toInt(),
+        weatherWind = o.doubleOrNull("weatherWind"),
+        weatherHumidity = o.doubleOrNull("weatherHumidity")?.toInt(),
+        weatherFetched = o.optBoolean("weatherFetched"),
     )
 
     private fun catchToJson(c: Catch) = JSONObject().apply {

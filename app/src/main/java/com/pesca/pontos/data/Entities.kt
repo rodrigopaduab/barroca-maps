@@ -14,9 +14,18 @@ data class Spot(
     val latitude: Double,
     val longitude: Double,
     val photos: List<String> = emptyList(),
-    /** Índice em PIN_COLORS (0 = laranja da marca). */
+    /** Cor do pino: 0..7 = cores prontas antigas (versão 0.1); outros valores = cor ARGB livre. */
     val color: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Peixe principal do ponto (usado também como filtro). */
+    val mainFish: String = "",
+    /** Clima na hora em que o ponto foi criado (Open-Meteo). */
+    val weatherTemp: Double? = null,
+    val weatherCode: Int? = null,
+    val weatherWind: Double? = null,
+    val weatherHumidity: Int? = null,
+    /** true quando o clima já foi buscado (ou desistimos); false = buscar quando tiver internet. */
+    val weatherFetched: Boolean = false,
 )
 
 /** Um peixe pego em um ponto. */
@@ -49,4 +58,10 @@ data class Catch(
 data class SpotSummary(
     val catchCount: Int,
     val lastCatchAt: Long?,
+)
+
+/** Quantos peixes cada ponto tem (lista de pontos). */
+data class SpotCount(
+    val spotId: Long,
+    val n: Int,
 )

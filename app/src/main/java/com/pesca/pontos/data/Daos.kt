@@ -21,6 +21,12 @@ interface SpotDao {
     @Query("SELECT * FROM spots")
     suspend fun listAll(): List<Spot>
 
+    @Query("SELECT * FROM spots WHERE weatherFetched = 0")
+    suspend fun listWithoutWeather(): List<Spot>
+
+    @Query("SELECT DISTINCT mainFish FROM spots WHERE mainFish != '' ORDER BY mainFish")
+    fun observeMainFish(): Flow<List<String>>
+
     @Query("DELETE FROM spots")
     suspend fun deleteAll()
 
@@ -59,6 +65,9 @@ interface CatchDao {
 
     @Insert
     suspend fun insertAll(catches: List<Catch>)
+
+    @Query("SELECT spotId, COUNT(*) AS n FROM catches GROUP BY spotId")
+    fun observeCounts(): Flow<List<SpotCount>>
 
     @Query("SELECT DISTINCT species FROM catches ORDER BY species")
     suspend fun allSpecies(): List<String>

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material3.AssistChip
@@ -54,8 +55,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -83,6 +89,7 @@ fun MapScreen(
     onNewSpot: (Double, Double) -> Unit,
     onOpenSpot: (Long) -> Unit,
     onSettings: () -> Unit,
+    onList: () -> Unit,
 ) {
     val context = LocalContext.current
     val repo = rememberRepo()
@@ -178,8 +185,8 @@ fun MapScreen(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             ) {
                 CevaMark(Modifier.size(width = 22.dp, height = 28.dp))
                 Spacer(Modifier.size(4.dp))
@@ -193,6 +200,8 @@ fun MapScreen(
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 FilledIconButton(
@@ -202,6 +211,7 @@ fun MapScreen(
                         contentColor = MaterialTheme.colorScheme.onSecondary,
                     ),
                 ) { Icon(Icons.Default.Layers, if (settings.satellite) "Mapa normal" else "Satélite") }
+                IconButton(onClick = onList) { Icon(Icons.Default.Search, "Lista e busca de pontos") }
                 IconButton(onClick = {
                     scanner.launch(
                         ScanOptions()
@@ -288,30 +298,33 @@ fun MapScreen(
     }
 }
 
-/** Símbolo do Ceva desenhado em código (pino com boia). */
+/** Símbolo do Ceva desenhado em código: pino com a boia na água (o mesmo desenho do ícone). */
+private object MarkPaths {
+    private fun p(d: String) = PathParser().parsePathString(d).toPath()
+    val pin = p("M48,4C25,4 8,21 8,43c0,29 40,73 40,73s40,-44 40,-73C88,21 71,4 48,4z")
+    val window = p("M48,44m-31,0a31,31 0,1 1,62 0a31,31 0,1 1,-62 0")
+    val water = p("M10,50q9.5,-5 19,0t19,0t19,0t19,0V90H10z")
+    val ripple1 = p("M28,61q10,4 20,0t20,0")
+    val ripple2 = p("M34,70q7,3 14,0t14,0")
+    val bobber = p("M35,50a13,13 0,0 1,26 0z")
+}
+
 @Composable
-fun CevaMark(modifier: Modifier = Modifier, pin: Color = Ceva.Boia) {
+fun CevaMark(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val sx = size.width / 96f
-        val sy = size.height / 120f
-        val outer = Path().apply {
-            moveTo(48f * sx, 4f * sy)
-            cubicTo(25f * sx, 4f * sy, 8f * sx, 21f * sy, 8f * sx, 43f * sy)
-            cubicTo(8f * sx, 72f * sy, 48f * sx, 116f * sy, 48f * sx, 116f * sy)
-            cubicTo(48f * sx, 116f * sy, 88f * sx, 72f * sy, 88f * sx, 43f * sy)
-            cubicTo(88f * sx, 21f * sy, 71f * sx, 4f * sy, 48f * sx, 4f * sy)
-            close()
+        val k = minOf(size.width / 96f, size.height / 120f)
+        withTransform({ scale(k, k, pivot = Offset.Zero) }) {
+            drawPath(MarkPaths.pin, Ceva.Boia)
+            drawPath(MarkPaths.window, Ceva.Mata)
+            clipPath(MarkPaths.window) {
+                drawPath(MarkPaths.water, Ceva.Nevoa)
+                drawPath(MarkPaths.ripple1, Ceva.Mata, style = Stroke(width = 3f, cap = StrokeCap.Round))
+                drawPath(MarkPaths.ripple2, Ceva.Mata, style = Stroke(width = 3f, cap = StrokeCap.Round))
+            }
+            drawPath(MarkPaths.bobber, Ceva.Boia)
+            drawPath(MarkPaths.bobber, Ceva.Mata, style = Stroke(width = 3f))
+            drawLine(Ceva.Nevoa, Offset(48f, 37f), Offset(48f, 21f), strokeWidth = 3.5f, cap = StrokeCap.Round)
         }
-        val lower = Path().apply {
-            moveTo(14f * sx, 52f * sy)
-            cubicTo(18f * sx, 49f * sy, 86f * sx, 49f * sy, 84f * sx, 52f * sy)
-            cubicTo(78f * sx, 70f * sy, 48f * sx, 106f * sy, 48f * sx, 106f * sy)
-            cubicTo(48f * sx, 106f * sy, 20f * sx, 70f * sy, 14f * sx, 52f * sy)
-            close()
-        }
-        drawPath(outer, pin)
-        drawPath(lower, Ceva.Nevoa)
-        drawCircle(Ceva.Mata, radius = 12f * sx, center = Offset(48f * sx, 40f * sy))
     }
 }
 
@@ -330,7 +343,7 @@ private fun SpotCard(spot: Spot, onNavigate: () -> Unit, onDetails: () -> Unit) 
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Canvas(Modifier.size(14.dp)) { drawCircle(pinColor(spot.color).swatch) }
+            Canvas(Modifier.size(14.dp)) { drawCircle(pinComposeColor(spot.color)) }
             Text(spot.name, style = MaterialTheme.typography.headlineMedium)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

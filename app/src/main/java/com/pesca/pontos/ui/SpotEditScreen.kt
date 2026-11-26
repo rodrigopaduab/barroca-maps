@@ -51,6 +51,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.toArgb
+import com.pesca.pontos.Weather
 import com.pesca.pontos.data.Spot
 import kotlinx.coroutines.launch
 
@@ -74,17 +80,29 @@ fun SpotEditScreen(
     var lat by rememberSaveable { mutableStateOf(initialLat) }
     var lng by rememberSaveable { mutableStateOf(initialLng) }
     var photos by rememberSaveable { mutableStateOf(listOf<String>()) }
-    var color by rememberSaveable { mutableStateOf(0) }
+    var color by rememberSaveable { mutableStateOf(DEFAULT_PIN_COLOR) }
+    var mainFish by rememberSaveable { mutableStateOf("") }
+    var createdAt by rememberSaveable { mutableStateOf(System.currentTimeMillis()) }
     var imported by rememberSaveable { mutableStateOf(false) }
     var nameError by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
+    var showWheel by remember { mutableStateOf(false) }
+    var fishOptions by remember { mutableStateOf(COMMON_SPECIES) }
+
+    // Clima: null em weatherFetched = ainda buscando
+    var weather by remember { mutableStateOf<Weather.Data?>(null) }
+    var weatherFetched by remember { mutableStateOf(false) }
+    var weatherLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(spotId) {
+        val mine = repo.spots.listAll().map { it.mainFish } + repo.catches.allSpecies()
+        fishOptions = (mine.filter { it.isNotBlank() } + COMMON_SPECIES).distinct()
         // Ponto vindo de um QR code: já chega preenchido
         if (spotId == null) {
             repo.pendingImport?.let { shared ->
                 name = shared.name; notes = shared.notes; lat = shared.latitude; lng = shared.longitude
-                color = shared.color.coerceIn(0, PIN_COLORS.lastIndex)
+                color = resolvePinColor(shared.color)
+                mainFish = shared.mainFish
                 imported = true
             }
             repo.pendingImport = null
@@ -93,10 +111,24 @@ fun SpotEditScreen(
             val s = repo.spots.get(spotId) ?: return@LaunchedEffect onBack()
             original = s
             if (!loaded) {
-                name = s.name; notes = s.notes; lat = s.latitude; lng = s.longitude; photos = s.photos; color = s.color
+                name = s.name; notes = s.notes; lat = s.latitude; lng = s.longitude; photos = s.photos
+                color = resolvePinColor(s.color); mainFish = s.mainFish; createdAt = s.createdAt
                 loaded = true
             }
+            if (s.weatherFetched) {
+                weather = Weather.Data(s.weatherTemp, s.weatherCode, s.weatherWind, s.weatherHumidity)
+                weatherFetched = true
+            }
         }
+    }
+
+    // Busca o clima do momento (ponto novo) ou do dia em que o ponto foi criado (se ainda faltar)
+    LaunchedEffect(lat, lng, loaded) {
+        if (!loaded || weatherFetched && spotId != null) return@LaunchedEffect
+        weatherLoading = true
+        val w = Weather.fetch(lat, lng, createdAt)
+        weatherLoading = false
+        if (w != null) { weather = w; weatherFetched = true }
     }
 
     Scaffold(
@@ -174,30 +206,78 @@ fun SpotEditScreen(
                 }
             }
 
+            // Data e clima
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row {
+                        Text("Criado em", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        Text(formatDateTime(createdAt), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text("Clima no dia", style = MaterialTheme.typography.titleSmall)
+                    val w = weather
+                    Text(
+                        when {
+                            w != null -> Weather.summary(w.tempC, w.code, w.windKmh, w.humidity)
+                            weatherLoading -> "Buscando o clima..."
+                            else -> "Sem internet agora. O clima será preenchido sozinho quando houver conexão."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (w != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Peixe principal
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = mainFish,
+                    onValueChange = { mainFish = it },
+                    label = { Text("Peixe principal") },
+                    placeholder = { Text("O peixe que mais sai aqui") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    fishOptions.forEach { sp ->
+                        FilterChip(
+                            selected = mainFish.equals(sp, ignoreCase = true),
+                            onClick = { mainFish = if (mainFish.equals(sp, ignoreCase = true)) "" else sp },
+                            label = { Text(sp) },
+                        )
+                    }
+                }
+            }
+
+            // Cor do pino
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Cor do pino", style = MaterialTheme.typography.titleSmall)
+                val presetIndex = PIN_COLORS.indexOfFirst { it.swatch.toArgb() == color }
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     PIN_COLORS.forEachIndexed { i, pc ->
-                        val selected = i == color
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(pc.swatch)
-                                .border(
-                                    width = if (selected) 3.dp else 1.dp,
-                                    color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline,
-                                    shape = CircleShape,
-                                )
-                                .clickable(onClickLabel = pc.name) { color = i }
-                                .semantics { contentDescription = pc.name + if (selected) ", escolhida" else "" },
-                        ) {
-                            if (selected) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
+                        ColorDot(
+                            label = pc.name,
+                            selected = i == presetIndex,
+                            modifier = Modifier.background(pc.swatch),
+                        ) { color = pc.swatch.toArgb() }
+                    }
+                    // roda de cores: mostra a cor livre escolhida no meio
+                    ColorDot(
+                        label = "Outra cor",
+                        selected = presetIndex < 0,
+                        modifier = Modifier.background(Brush.sweepGradient(RAINBOW)),
+                    ) { showWheel = true }
+                }
+                if (presetIndex < 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(20.dp).clip(CircleShape).background(Color(color)))
+                        Text("Cor escolhida na roda", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -210,7 +290,8 @@ fun SpotEditScreen(
                     if (name.isBlank()) { nameError = true; return@Button }
                     saving = true
                     scope.launch {
-                        val base = original ?: Spot(name = "", latitude = lat, longitude = lng)
+                        val base = original ?: Spot(name = "", latitude = lat, longitude = lng, createdAt = createdAt)
+                        val w = weather
                         val spot = base.copy(
                             name = name.trim(),
                             notes = notes.trim(),
@@ -218,6 +299,12 @@ fun SpotEditScreen(
                             longitude = lng,
                             photos = photos,
                             color = color,
+                            mainFish = mainFish.trim(),
+                            weatherTemp = w?.tempC ?: base.weatherTemp,
+                            weatherCode = w?.code ?: base.weatherCode,
+                            weatherWind = w?.windKmh ?: base.weatherWind,
+                            weatherHumidity = w?.humidity ?: base.weatherHumidity,
+                            weatherFetched = weatherFetched || base.weatherFetched,
                         )
                         val id = repo.saveSpot(spot, original?.photos ?: emptyList())
                         onSaved(id)
@@ -226,5 +313,35 @@ fun SpotEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (saving) "Salvando..." else "Salvar ponto") }
         }
+    }
+
+    if (showWheel) {
+        ColorWheelDialog(
+            initial = color,
+            onDismiss = { showWheel = false },
+            onPick = { color = it; showWheel = false },
+        )
+    }
+}
+
+private val RAINBOW = List(7) { Color.hsv(it * 60f % 360f, 0.9f, 1f) }
+
+@Composable
+private fun ColorDot(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .then(modifier)
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline,
+                shape = CircleShape,
+            )
+            .clickable(onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label + if (selected) ", escolhida" else "" },
+    ) {
+        if (selected) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
     }
 }

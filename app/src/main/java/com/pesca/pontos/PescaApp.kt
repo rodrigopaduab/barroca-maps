@@ -44,6 +44,19 @@ class Repository(private val db: AppDatabase, val photos: PhotoStore) {
         return id
     }
 
+    /** Preenche o clima dos pontos criados sem internet. Para na primeira falha (provavelmente sem sinal). */
+    suspend fun fillMissingWeather() {
+        for (s in spots.listWithoutWeather()) {
+            val w = Weather.fetch(s.latitude, s.longitude, s.createdAt) ?: return
+            spots.update(
+                s.copy(
+                    weatherTemp = w.tempC, weatherCode = w.code, weatherWind = w.windKmh,
+                    weatherHumidity = w.humidity, weatherFetched = true,
+                )
+            )
+        }
+    }
+
     suspend fun deleteSpot(spot: Spot) {
         val catchPhotos = catches.listForSpot(spot.id).flatMap { it.photos }
         spots.delete(spot) // capturas são apagadas em cascata

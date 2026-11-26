@@ -25,6 +25,7 @@ data class SharedSpot(
     val longitude: Double,
     val notes: String,
     val color: Int,
+    val mainFish: String = "",
 )
 
 /**
@@ -44,6 +45,7 @@ object SpotQr {
             .appendQueryParameter("ceva", "1")
             .appendQueryParameter("n", spot.name)
             .appendQueryParameter("c", spot.color.toString())
+            .apply { if (spot.mainFish.isNotBlank()) appendQueryParameter("p", spot.mainFish.take(40)) }
             .apply { if (spot.notes.isNotBlank()) appendQueryParameter("i", spot.notes.take(MAX_NOTES)) }
             .build()
             .toString()
@@ -64,6 +66,7 @@ object SpotQr {
             longitude = lng,
             notes = uri.getQueryParameter("i")?.take(MAX_NOTES) ?: "",
             color = uri.getQueryParameter("c")?.toIntOrNull() ?: 0,
+            mainFish = uri.getQueryParameter("p")?.take(40) ?: "",
         )
     }
 

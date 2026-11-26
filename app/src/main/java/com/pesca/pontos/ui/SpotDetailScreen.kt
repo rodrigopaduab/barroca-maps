@@ -39,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,7 +53,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.pesca.pontos.Weather
 import com.pesca.pontos.data.Catch
+import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -75,6 +78,8 @@ fun SpotDetailScreen(
     val catches by catchesFlow.collectAsState(initial = emptyList())
     var confirmDelete by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
+
+    LaunchedEffect(spotId) { repo.fillMissingWeather() }
 
     Scaffold(
         topBar = {
@@ -132,15 +137,26 @@ fun SpotDetailScreen(
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (s.mainFish.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Canvas(Modifier.size(12.dp)) { drawCircle(pinComposeColor(s.color)) }
+                            Text("Peixe principal: ${s.mainFish}", style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
                     if (s.notes.isNotBlank()) Text(s.notes, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "📍 ${formatCoord(s.latitude, s.longitude)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        "Criado em ${formatDateTime(s.createdAt)}",
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        "Marcado em ${formatDate(s.createdAt)}",
+                        if (s.weatherFetched) "Clima no dia: " + Weather.summary(s.weatherTemp, s.weatherCode, s.weatherWind, s.weatherHumidity)
+                        else "Clima no dia: será preenchido quando houver internet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (s.weatherFetched) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        formatCoord(s.latitude, s.longitude),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

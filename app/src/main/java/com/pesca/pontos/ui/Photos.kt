@@ -1,6 +1,10 @@
 package com.pesca.pontos.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -56,6 +60,7 @@ fun PhotoEditor(
     modifier: Modifier = Modifier,
 ) {
     val repo = rememberRepo()
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var pendingCamera by rememberSaveable { mutableStateOf<String?>(null) }
@@ -78,6 +83,19 @@ fun PhotoEditor(
     }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         importAll(uris)
+    }
+
+    fun openCamera() {
+        val uri = repo.photos.newCameraUri()
+        pendingCamera = uri.toString()
+        camera.launch(uri)
+    }
+
+    // A biblioteca do leitor de QR declara a permissão de câmera no app. Com ela declarada,
+    // o Android exige que a permissão esteja concedida até para abrir o app de câmera.
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) openCamera()
+        else Toast.makeText(context, "Sem permissão de câmera. Use a Galeria ou libere nas configurações do Android.", Toast.LENGTH_LONG).show()
     }
 
     Column(modifier) {
@@ -115,9 +133,8 @@ fun PhotoEditor(
         }
         androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
-                val uri = repo.photos.newCameraUri()
-                pendingCamera = uri.toString()
-                camera.launch(uri)
+                if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) openCamera()
+                else cameraPermission.launch(Manifest.permission.CAMERA)
             }) {
                 Icon(Icons.Default.PhotoCamera, null)
                 Text("  Câmera")
