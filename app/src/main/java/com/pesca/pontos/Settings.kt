@@ -75,7 +75,7 @@ class Settings(context: Context) {
     var lastDriveBackupAt by mutableStateOf(prefs.getLong("drive_last", 0L))
         private set
 
-    fun setDriveConnected(v: Boolean) { driveConnected = v; prefs.edit().putBoolean("drive_connected", v).apply() }
+    fun updateDriveConnected(v: Boolean) { driveConnected = v; prefs.edit().putBoolean("drive_connected", v).apply() }
     fun updateDriveAuto(v: Boolean) { driveAuto = v; prefs.edit().putBoolean("drive_auto", v).apply() }
     fun updateDriveWifiOnly(v: Boolean) { driveWifiOnly = v; prefs.edit().putBoolean("drive_wifi", v).apply() }
     fun markDriveBackup(at: Long) {

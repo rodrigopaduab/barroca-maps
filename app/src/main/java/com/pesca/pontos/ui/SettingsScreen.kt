@@ -332,7 +332,7 @@ private fun DriveCard() {
             val r = com.google.android.gms.auth.api.identity.Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(res.data)
             val token = r.accessToken
             if (token == null) { busy = null; message = "Conexão com o Google cancelada."; return@rememberLauncherForActivityResult }
-            settings.setDriveConnected(true)
+            settings.updateDriveConnected(true)
             if (settings.driveAuto) DriveBackup.schedule(context, true, settings.driveWifiOnly)
             if (action != null) scope.launch { action(token) } else busy = null
         } catch (e: Exception) {
@@ -351,7 +351,7 @@ private fun DriveCard() {
                     pendingAction = action
                     authLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(r.pendingIntent!!.intentSender).build())
                 } else {
-                    settings.setDriveConnected(true)
+                    settings.updateDriveConnected(true)
                     action(r.accessToken!!)
                 }
             } catch (e: Exception) {
@@ -439,7 +439,7 @@ private fun DriveCard() {
                 modifier = Modifier.fillMaxWidth().height(50.dp),
             ) { Text("Restaurar do Drive") }
             TextButton(onClick = {
-                settings.setDriveConnected(false)
+                settings.updateDriveConnected(false)
                 DriveBackup.schedule(context, false, false)
                 message = "Google Drive desconectado neste app."
             }) { Text("Desconectar") }
