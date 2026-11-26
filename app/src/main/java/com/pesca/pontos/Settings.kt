@@ -65,6 +65,25 @@ class Settings(context: Context) {
 
     fun finishOnboarding() { onboardingDone = true; prefs.edit().putBoolean("onboarding_done", true).apply() }
 
+    // ---- Google Drive ----
+    var driveConnected by mutableStateOf(prefs.getBoolean("drive_connected", false))
+        private set
+    var driveAuto by mutableStateOf(prefs.getBoolean("drive_auto", true))
+        private set
+    var driveWifiOnly by mutableStateOf(prefs.getBoolean("drive_wifi", true))
+        private set
+    var lastDriveBackupAt by mutableStateOf(prefs.getLong("drive_last", 0L))
+        private set
+
+    fun setDriveConnected(v: Boolean) { driveConnected = v; prefs.edit().putBoolean("drive_connected", v).apply() }
+    fun updateDriveAuto(v: Boolean) { driveAuto = v; prefs.edit().putBoolean("drive_auto", v).apply() }
+    fun updateDriveWifiOnly(v: Boolean) { driveWifiOnly = v; prefs.edit().putBoolean("drive_wifi", v).apply() }
+    fun markDriveBackup(at: Long) {
+        // pode ser chamado fora da thread principal (backup automático)
+        prefs.edit().putLong("drive_last", at).apply()
+        android.os.Handler(android.os.Looper.getMainLooper()).post { lastDriveBackupAt = at }
+    }
+
     fun updateTheme(t: AppTheme) { theme = t; prefs.edit().putString("theme", t.name).apply() }
     fun updateBigText(v: Boolean) { bigText = v; prefs.edit().putBoolean("big_text", v).apply() }
     fun updateSatellite(v: Boolean) { satellite = v; prefs.edit().putBoolean("satellite", v).apply() }

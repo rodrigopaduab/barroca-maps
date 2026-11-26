@@ -26,7 +26,7 @@ android {
         targetSdk = 35
         // No GitHub, cada compilação ganha um número maior (o Android exige isso para atualizar)
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-        versionName = "0.4.0"
+        versionName = "0.5.0"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
@@ -91,6 +91,10 @@ dependencies {
     // Fotos
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Backup no Google Drive: autorização pela conta Google e agendamento diário
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     // QR code: gerar (zxing core) e ler pela câmera, funciona sem internet
     implementation("com.google.zxing:core:3.5.3")

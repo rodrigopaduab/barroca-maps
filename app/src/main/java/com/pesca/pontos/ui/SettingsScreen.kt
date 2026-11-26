@@ -44,6 +44,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import com.pesca.pontos.AppTheme
 import com.pesca.pontos.Backup
+import com.pesca.pontos.drive.DriveBackup
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -103,6 +104,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             Section("Backup")
+            DriveCard()
             BackupCard(version)
 
             Section("Caminhos")
@@ -246,11 +248,6 @@ private fun BackupCard(version: String) {
             onClick = { openLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) },
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) { Text("Restaurar um backup") }
-        Text(
-            "Backup automático no Google Drive chega numa próxima versão.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 
     pending?.let { (uri, info) ->
@@ -316,3 +313,201 @@ private fun ImportTrailCard() {
         ) { Text("Abrir arquivo de caminho") }
     }
 }
+
+@Composable
+private fun DriveCard() {
+    val context = LocalContext.current
+    val settings = rememberSettings()
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf<String?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var backups by remember { mutableStateOf<List<DriveBackup.RemoteBackup>?>(null) }
+    var chosen by remember { mutableStateOf<Pair<DriveBackup.RemoteBackup, com.pesca.pontos.Backup.Info>?>(null) }
+    var pendingAction by remember { mutableStateOf<(suspend (String) -> Unit)?>(null) }
+
+    val authLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
+        val action = pendingAction
+        pendingAction = null
+        try {
+            val r = com.google.android.gms.auth.api.identity.Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(res.data)
+            val token = r.accessToken
+            if (token == null) { busy = null; message = "Conexão com o Google cancelada."; return@rememberLauncherForActivityResult }
+            settings.setDriveConnected(true)
+            if (settings.driveAuto) DriveBackup.schedule(context, true, settings.driveWifiOnly)
+            if (action != null) scope.launch { action(token) } else busy = null
+        } catch (e: Exception) {
+            busy = null
+            message = "Conexão com o Google cancelada."
+        }
+    }
+
+    /** Garante um token (pedindo a tela do Google se preciso) e executa a ação. */
+    fun withToken(action: suspend (String) -> Unit) {
+        scope.launch {
+            message = null
+            try {
+                val r = DriveBackup.authorize(context)
+                if (r.hasResolution()) {
+                    pendingAction = action
+                    authLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(r.pendingIntent!!.intentSender).build())
+                } else {
+                    settings.setDriveConnected(true)
+                    action(r.accessToken!!)
+                }
+            } catch (e: Exception) {
+                busy = null
+                message = "Não deu para conectar ao Google: ${e.message ?: "erro"}"
+            }
+        }
+    }
+
+    SettingsCard {
+        Text("Google Drive", style = MaterialTheme.typography.titleSmall)
+        if (!settings.driveConnected) {
+            Text(
+                "Guarda uma cópia dos pontos, peixes, caminhos e fotos numa pasta \"Ceva Backups\" no seu Google Drive. " +
+                    "O app só enxerga os arquivos que ele mesmo criou.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(
+                if (settings.lastDriveBackupAt == 0L) "Conectado. Nenhum backup no Drive ainda."
+                else "Último backup no Drive: ${formatDateTime(settings.lastDriveBackupAt)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        busy?.let {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text(it, style = MaterialTheme.typography.bodySmall)
+        }
+        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary) }
+
+        if (!settings.driveConnected) {
+            Button(
+                enabled = busy == null,
+                onClick = {
+                    busy = "Conectando..."
+                    withToken {
+                        busy = null
+                        message = "Google Drive conectado."
+                        if (settings.driveAuto) DriveBackup.schedule(context, true, settings.driveWifiOnly)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+            ) { Text("Conectar Google Drive") }
+        } else {
+            Button(
+                enabled = busy == null,
+                onClick = {
+                    busy = "Enviando backup para o Drive..."
+                    withToken { token ->
+                        message = try {
+                            val info = DriveBackup.backupNow(context, token)
+                            "Backup no Drive: ${info.spots} pontos, ${info.catches} peixes e ${info.photos} fotos."
+                        } catch (e: Exception) {
+                            "Não deu para fazer o backup: ${e.message ?: "erro"}"
+                        }
+                        busy = null
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+            ) { Text("Fazer backup no Drive agora") }
+            SwitchRow("Backup automático (1 vez por dia)", settings.driveAuto) {
+                settings.updateDriveAuto(it)
+                DriveBackup.schedule(context, it, settings.driveWifiOnly)
+            }
+            SwitchRow("Só no Wi-Fi", settings.driveWifiOnly) {
+                settings.updateDriveWifiOnly(it)
+                if (settings.driveAuto) DriveBackup.schedule(context, true, it)
+            }
+            OutlinedButton(
+                enabled = busy == null,
+                onClick = {
+                    busy = "Buscando backups no Drive..."
+                    withToken { token ->
+                        try {
+                            backups = DriveBackup.listBackups(token)
+                            if (backups.isNullOrEmpty()) message = "Nenhum backup do Ceva no seu Drive."
+                        } catch (e: Exception) {
+                            message = e.message
+                        }
+                        busy = null
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+            ) { Text("Restaurar do Drive") }
+            TextButton(onClick = {
+                settings.setDriveConnected(false)
+                DriveBackup.schedule(context, false, false)
+                message = "Google Drive desconectado neste app."
+            }) { Text("Desconectar") }
+        }
+    }
+
+    // escolher qual backup restaurar
+    backups?.takeIf { it.isNotEmpty() }?.let { list ->
+        AlertDialog(
+            onDismissRequest = { backups = null },
+            title = { Text("Backups no Drive") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    list.forEach { b ->
+                        TextButton(
+                            onClick = {
+                                backups = null
+                                busy = "Conferindo o backup..."
+                                withToken { token ->
+                                    try {
+                                        chosen = b to DriveBackup.inspect(context, token, b)
+                                    } catch (e: Exception) {
+                                        message = e.message
+                                    }
+                                    busy = null
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                "${formatDateTime(b.createdAt)}  ·  " + String.format(java.util.Locale("pt", "BR"), "%.1f MB", b.sizeBytes / 1_000_000.0),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { backups = null }) { Text("Fechar") } },
+        )
+    }
+
+    chosen?.let { (b, info) ->
+        AlertDialog(
+            onDismissRequest = { chosen = null },
+            title = { Text("Restaurar este backup?") },
+            text = {
+                Text(
+                    "Backup de ${formatDateTime(info.createdAt)} com ${info.spots} pontos, ${info.catches} peixes e ${info.photos} fotos.\n\n" +
+                        "Tudo o que está no celular agora será trocado por ele."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    chosen = null
+                    busy = "Restaurando do Drive..."
+                    withToken { token ->
+                        message = try {
+                            DriveBackup.restore(context, token, b)
+                            "Backup restaurado do Drive."
+                        } catch (e: Exception) {
+                            "Não deu para restaurar: ${e.message ?: "erro"}"
+                        }
+                        busy = null
+                    }
+                }) { Text("Restaurar") }
+            },
+            dismissButton = { TextButton(onClick = { chosen = null }) { Text("Cancelar") } },
+        )
+    }
+}
+
