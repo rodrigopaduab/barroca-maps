@@ -54,6 +54,85 @@ object Weather {
         }
     }
 
+    /** Clima de agora para o painel de pescaria. */
+    data class Now(
+        val tempC: Double?,
+        val code: Int?,
+        val windKmh: Double?,
+        val windDir: Double?,
+        val pressure: Double?,
+        /** variação da pressão nas últimas 3 horas (hPa) */
+        val pressureDelta: Double?,
+        val humidity: Int?,
+        /** maior chance de chuva nas próximas 3 horas (%) */
+        val rainChance: Int?,
+        val fetchedAt: Long,
+    ) {
+        fun toJson(): String = JSONObject().apply {
+            put("t", tempC ?: JSONObject.NULL); put("c", code ?: JSONObject.NULL)
+            put("w", windKmh ?: JSONObject.NULL); put("wd", windDir ?: JSONObject.NULL)
+            put("p", pressure ?: JSONObject.NULL); put("pd", pressureDelta ?: JSONObject.NULL)
+            put("h", humidity ?: JSONObject.NULL); put("r", rainChance ?: JSONObject.NULL)
+            put("at", fetchedAt)
+        }.toString()
+
+        companion object {
+            fun fromJson(s: String): Now? = runCatching {
+                val o = JSONObject(s)
+                fun d(k: String) = if (o.isNull(k)) null else o.getDouble(k)
+                Now(d("t"), d("c")?.toInt(), d("w"), d("wd"), d("p"), d("pd"), d("h")?.toInt(), d("r")?.toInt(), o.getLong("at"))
+            }.getOrNull()
+        }
+    }
+
+    suspend fun fetchNow(lat: Double, lng: Double): Now? = withContext(Dispatchers.IO) {
+        try {
+            val coords = String.format(Locale.US, "latitude=%.4f&longitude=%.4f", lat, lng)
+            val url = "https://api.open-meteo.com/v1/forecast?$coords" +
+                "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl" +
+                "&hourly=pressure_msl,precipitation_probability&past_hours=3&forecast_hours=4&timezone=UTC&timeformat=unixtime"
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+            if (conn.responseCode != 200) return@withContext null
+            val root = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val cur = root.getJSONObject("current")
+            fun c(k: String): Double? = if (cur.isNull(k)) null else cur.optDouble(k)
+            val hourly = root.optJSONObject("hourly")
+            var delta: Double? = null
+            var rain: Int? = null
+            if (hourly != null) {
+                val times = hourly.getJSONArray("time")
+                val press = hourly.optJSONArray("pressure_msl")
+                val prob = hourly.optJSONArray("precipitation_probability")
+                val now = System.currentTimeMillis() / 1000
+                val p0 = c("pressure_msl")
+                if (press != null && p0 != null && times.length() > 0 && !press.isNull(0)) delta = p0 - press.getDouble(0)
+                if (prob != null) {
+                    for (i in 0 until times.length()) {
+                        val t = times.getLong(i)
+                        if (t >= now - 3600 && t <= now + 3 * 3600 && !prob.isNull(i)) rain = maxOf(rain ?: 0, prob.getInt(i))
+                    }
+                }
+            }
+            Now(
+                tempC = c("temperature_2m"), code = c("weather_code")?.toInt(),
+                windKmh = c("wind_speed_10m"), windDir = c("wind_direction_10m"),
+                pressure = c("pressure_msl"), pressureDelta = delta,
+                humidity = c("relative_humidity_2m")?.toInt(), rainChance = rain,
+                fetchedAt = System.currentTimeMillis(),
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Direção de onde o vento vem, em pontos cardeais. */
+    fun compass(deg: Double): String {
+        val names = listOf("N", "NE", "L", "SE", "S", "SO", "O", "NO")
+        return names[(((deg % 360) + 360) % 360 / 45.0 + 0.5).toInt() % 8]
+    }
+
     /** Código WMO do clima em português. */
     fun describe(code: Int?): String = when (code) {
         null -> "—"

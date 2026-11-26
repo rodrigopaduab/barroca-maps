@@ -102,6 +102,7 @@ fun MapScreen(
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var centeredOnce by rememberSaveable { mutableStateOf(false) }
     var locating by remember { mutableStateOf(false) }
+    var myPos by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(BRASIL, 4f) }
 
@@ -129,10 +130,16 @@ fun MapScreen(
         }
     }
 
+    // Posição para o painel de pescaria (GPS; sem GPS, o centro do mapa depois de mexer)
+    LaunchedEffect(hasPermission) {
+        if (hasPermission && myPos == null) currentLocation(context)?.let { myPos = it }
+    }
+
     // Na primeira abertura, centraliza na posição atual
     LaunchedEffect(hasPermission) {
         if (hasPermission && !centeredOnce) {
             currentLocation(context)?.let { (lat, lng) ->
+                myPos = lat to lng
                 camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 14f))
                 centeredOnce = true
             }
@@ -224,6 +231,17 @@ fun MapScreen(
                 IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Configurações") }
             }
         }
+
+        // Painel de pescaria (retrátil), logo abaixo da barra do topo
+        val panelPos = myPos ?: camera.position.target.takeIf { camera.position.zoom > 6f }?.let { it.latitude to it.longitude }
+        FishingPanel(
+            lat = panelPos?.first,
+            lng = panelPos?.second,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(top = 84.dp),
+        )
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

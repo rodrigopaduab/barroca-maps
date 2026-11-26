@@ -26,7 +26,7 @@ android {
         targetSdk = 35
         // No GitHub, cada compilação ganha um número maior (o Android exige isso para atualizar)
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-        versionName = "0.2.0"
+        versionName = "0.3.0"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 

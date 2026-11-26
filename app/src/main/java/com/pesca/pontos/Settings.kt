@@ -48,6 +48,17 @@ class Settings(context: Context) {
         prefs.edit().putStringSet("custom_fish", customFish.toSet()).apply()
     }
 
+    /** Painel de pescaria aberto ou recolhido. */
+    var panelOpen by mutableStateOf(prefs.getBoolean("panel_open", true))
+        private set
+
+    fun updatePanelOpen(v: Boolean) { panelOpen = v; prefs.edit().putBoolean("panel_open", v).apply() }
+
+    /** Último clima buscado para o painel (mostrado quando estiver sem internet). */
+    var lastWeather: String?
+        get() = prefs.getString("last_weather", null)
+        set(v) { prefs.edit().putString("last_weather", v).apply() }
+
     fun updateTheme(t: AppTheme) { theme = t; prefs.edit().putString("theme", t.name).apply() }
     fun updateBigText(v: Boolean) { bigText = v; prefs.edit().putBoolean("big_text", v).apply() }
     fun updateSatellite(v: Boolean) { satellite = v; prefs.edit().putBoolean("satellite", v).apply() }
