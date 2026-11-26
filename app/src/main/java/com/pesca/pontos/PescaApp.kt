@@ -44,12 +44,22 @@ class Repository(private val db: AppDatabase, val photos: PhotoStore) {
         return id
     }
 
-    /** Preenche o clima dos pontos criados sem internet. Para na primeira falha (provavelmente sem sinal). */
+    /** Preenche o clima dos pontos e peixes registrados sem internet. Para na primeira falha (provavelmente sem sinal). */
     suspend fun fillMissingWeather() {
         for (s in spots.listWithoutWeather()) {
             val w = Weather.fetch(s.latitude, s.longitude, s.createdAt) ?: return
             spots.update(
                 s.copy(
+                    weatherTemp = w.tempC, weatherCode = w.code, weatherWind = w.windKmh,
+                    weatherHumidity = w.humidity, weatherFetched = true,
+                )
+            )
+        }
+        for (c in catches.listWithoutWeather()) {
+            val s = spots.get(c.spotId) ?: continue
+            val w = Weather.fetch(s.latitude, s.longitude, c.caughtAt) ?: return
+            catches.update(
+                c.copy(
                     weatherTemp = w.tempC, weatherCode = w.code, weatherWind = w.windKmh,
                     weatherHumidity = w.humidity, weatherFetched = true,
                 )

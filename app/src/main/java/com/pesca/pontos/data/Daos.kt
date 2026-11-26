@@ -60,6 +60,9 @@ interface CatchDao {
     @Query("SELECT * FROM catches")
     suspend fun listAll(): List<Catch>
 
+    @Query("SELECT * FROM catches WHERE weatherFetched = 0")
+    suspend fun listWithoutWeather(): List<Catch>
+
     @Query("DELETE FROM catches")
     suspend fun deleteAll()
 

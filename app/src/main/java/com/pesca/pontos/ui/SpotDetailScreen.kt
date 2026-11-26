@@ -240,6 +240,14 @@ private fun CatchRow(c: Catch, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (c.weatherFetched) {
+                    Text(
+                        listOfNotNull(c.weatherTemp?.let { "${it.toInt()}°C" }, Weather.describe(c.weatherCode).takeIf { c.weatherCode != null })
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (c.released) {
                 AssistChip(onClick = onClick, label = { Text("Solto") })

@@ -46,7 +46,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.pesca.pontos.Weather
 import com.pesca.pontos.data.Catch
+import androidx.compose.material3.Card
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -82,6 +84,10 @@ fun CatchEditScreen(
     var saving by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var knownSpecies by remember { mutableStateOf(COMMON_SPECIES) }
+    var spotPos by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var weather by remember { mutableStateOf<Weather.Data?>(null) }
+    var weatherAt by remember { mutableStateOf<Long?>(null) } // hora a que o clima mostrado se refere
+    var weatherLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(catchId) {
         val mine = repo.catches.allSpecies()
@@ -98,9 +104,29 @@ fun CatchEditScreen(
                 notes = c.notes
                 released = c.released
                 photos = c.photos
+                if (c.weatherFetched) {
+                    weather = Weather.Data(c.weatherTemp, c.weatherCode, c.weatherWind, c.weatherHumidity)
+                    weatherAt = c.caughtAt
+                }
                 loaded = true
             }
         }
+    }
+
+    // posição do ponto, para buscar o clima
+    LaunchedEffect(catchId, spotId, loaded) {
+        val sid = original?.spotId ?: spotId ?: return@LaunchedEffect
+        repo.spots.get(sid)?.let { spotPos = it.latitude to it.longitude }
+    }
+
+    // Clima da hora do peixe: busca ao abrir e quando a hora muda
+    LaunchedEffect(spotPos, caughtAt, loaded) {
+        val pos = spotPos ?: return@LaunchedEffect
+        if (!loaded || weatherAt == caughtAt) return@LaunchedEffect
+        weatherLoading = true
+        val w = Weather.fetch(pos.first, pos.second, caughtAt)
+        weatherLoading = false
+        if (w != null) { weather = w; weatherAt = caughtAt } else { weather = null; weatherAt = null }
     }
 
     fun pickDateTime() {
@@ -191,6 +217,22 @@ fun CatchEditScreen(
                 Text("  Hora: ${formatDateTime(caughtAt)}")
             }
 
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Clima na hora do peixe", style = MaterialTheme.typography.titleSmall)
+                    val w = weather
+                    Text(
+                        when {
+                            w != null && weatherAt == caughtAt -> Weather.summary(w.tempC, w.code, w.windKmh, w.humidity)
+                            weatherLoading -> "Buscando o clima..."
+                            else -> "Sem internet agora. O clima será preenchido sozinho quando houver conexão."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (w != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = bait,
                 onValueChange = { bait = it },
@@ -233,6 +275,11 @@ fun CatchEditScreen(
                             notes = notes.trim(),
                             released = released,
                             photos = photos,
+                            weatherTemp = weather?.tempC.takeIf { weatherAt == caughtAt },
+                            weatherCode = weather?.code.takeIf { weatherAt == caughtAt },
+                            weatherWind = weather?.windKmh.takeIf { weatherAt == caughtAt },
+                            weatherHumidity = weather?.humidity.takeIf { weatherAt == caughtAt },
+                            weatherFetched = weather != null && weatherAt == caughtAt,
                         )
                         settings.addFish(c.species)
                         repo.saveCatch(c, original?.photos ?: emptyList())

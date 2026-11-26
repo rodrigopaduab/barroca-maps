@@ -52,6 +52,12 @@ data class Catch(
     val notes: String = "",
     val released: Boolean = false,
     val photos: List<String> = emptyList(),
+    /** Clima na hora em que o peixe foi pego (Open-Meteo). */
+    val weatherTemp: Double? = null,
+    val weatherCode: Int? = null,
+    val weatherWind: Double? = null,
+    val weatherHumidity: Int? = null,
+    val weatherFetched: Boolean = false,
 )
 
 /** Resumo usado no cartão do mapa. */

@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Spot::class, Catch::class], version = 2, exportSchema = false)
+@Database(entities = [Spot::class, Catch::class], version = 3, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun spotDao(): SpotDao
@@ -27,9 +27,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 0.3 -> 0.4: clima em cada peixe. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE catches ADD COLUMN weatherTemp REAL")
+                db.execSQL("ALTER TABLE catches ADD COLUMN weatherCode INTEGER")
+                db.execSQL("ALTER TABLE catches ADD COLUMN weatherWind REAL")
+                db.execSQL("ALTER TABLE catches ADD COLUMN weatherHumidity INTEGER")
+                db.execSQL("ALTER TABLE catches ADD COLUMN weatherFetched INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "pesca.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

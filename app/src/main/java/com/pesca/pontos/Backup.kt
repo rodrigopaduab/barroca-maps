@@ -181,6 +181,9 @@ object Backup {
         put("weightKg", c.weightKg ?: JSONObject.NULL); put("lengthCm", c.lengthCm ?: JSONObject.NULL)
         put("caughtAt", c.caughtAt); put("bait", c.bait); put("notes", c.notes)
         put("released", c.released); put("photos", names(c.photos))
+        put("weatherTemp", c.weatherTemp ?: JSONObject.NULL); put("weatherCode", c.weatherCode ?: JSONObject.NULL)
+        put("weatherWind", c.weatherWind ?: JSONObject.NULL); put("weatherHumidity", c.weatherHumidity ?: JSONObject.NULL)
+        put("weatherFetched", c.weatherFetched)
     }
 
     private fun catchFromJson(o: JSONObject, path: (String) -> String) = Catch(
@@ -194,5 +197,10 @@ object Backup {
         notes = o.optString("notes"),
         released = o.optBoolean("released"),
         photos = o.strings("photos").filter { SAFE_NAME.matches(it) }.map(path),
+        weatherTemp = o.doubleOrNull("weatherTemp"),
+        weatherCode = o.doubleOrNull("weatherCode")?.toInt(),
+        weatherWind = o.doubleOrNull("weatherWind"),
+        weatherHumidity = o.doubleOrNull("weatherHumidity")?.toInt(),
+        weatherFetched = o.optBoolean("weatherFetched"),
     )
 }
