@@ -11,7 +11,7 @@ import java.net.URL
  * Troque GITHUB_REPO pelo "usuario/repositorio" quando o projeto estiver no GitHub.
  */
 object Updates {
-    const val GITHUB_REPO = "SEU_USUARIO/ceva"
+    const val GITHUB_REPO = "rodrigopaduab/ceva"
     val releasesPage get() = "https://github.com/$GITHUB_REPO/releases"
     val configured get() = !GITHUB_REPO.startsWith("SEU_USUARIO")
 

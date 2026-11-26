@@ -38,4 +38,4 @@ App Android para marcar pontos de pesca no mapa, com fotos, informações e os p
 3. A cada envio para a branch `main`, a aba **Actions** gera o APK. Baixe-o em **Artifacts** e instale no celular.
 
 ## Atualizações pelo GitHub
-Em `app/src/main/java/com/pesca/pontos/Updates.kt`, troque `SEU_USUARIO/ceva` pelo endereço do repositório. O botão "Procurar atualização" compara a versão instalada com a última versão publicada em **Releases** (a tag deve ser o número da versão, ex.: `v0.2.0`).
+O botão "Procurar atualização" compara a versão instalada com a última versão publicada em **Releases** (a tag deve ser o número da versão, ex.: `v0.2.0`).
