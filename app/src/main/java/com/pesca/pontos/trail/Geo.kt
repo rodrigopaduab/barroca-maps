@@ -49,7 +49,17 @@ object Geo {
         sb.append((x + 63).toInt().toChar())
     }
 
-    fun decode(s: String, precision: Double = 1e6): List<P> {
+    /** Trechos separados por espaço (um buraco no GPS vira dois trechos). */
+    fun encodeSegments(segments: List<List<P>>, precision: Double = 1e6): String =
+        segments.filter { it.isNotEmpty() }.joinToString(" ") { encode(it, precision) }
+
+    fun decodeSegments(s: String, precision: Double = 1e6): List<List<P>> =
+        s.split(' ').filter { it.isNotEmpty() }.map { decodeOne(it, precision) }.filter { it.isNotEmpty() }
+
+    /** Todos os pontos em sequência (os trechos são emendados). */
+    fun decode(s: String, precision: Double = 1e6): List<P> = decodeSegments(s, precision).flatten()
+
+    private fun decodeOne(s: String, precision: Double): List<P> {
         val out = ArrayList<P>()
         var i = 0
         var lat = 0L

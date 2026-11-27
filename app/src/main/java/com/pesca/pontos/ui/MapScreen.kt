@@ -126,6 +126,7 @@ fun MapScreen(
     var compassMode by rememberSaveable { mutableStateOf(false) }
     var toSave by remember { mutableStateOf<Recording?>(null) }
     var followId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var askBattery by remember { mutableStateOf(false) }
 
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(BRASIL, 4f) }
 
@@ -218,24 +219,28 @@ fun MapScreen(
             // caminhos salvos (finos) e o que está sendo seguido (destacado)
             trails.forEach { t ->
                 key("trail-${t.id}") {
-                    val pts = remember(t.points) { Geo.decode(t.points).map { LatLng(it.lat, it.lng) } }
+                    val segs = remember(t.points) { Geo.decodeSegments(t.points).map { seg -> seg.map { LatLng(it.lat, it.lng) } } }
                     if (t.id == followId) {
-                        Polyline(points = pts, color = Color.White, width = 22f, zIndex = 1f)
-                        Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 2f)
+                        segs.forEach { pts ->
+                            Polyline(points = pts, color = Color.White, width = 22f, zIndex = 1f)
+                            Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 2f)
+                        }
                         progress?.let { pr ->
                             val done = Geo.traveledPart(followPath, pr).map { LatLng(it.lat, it.lng) }
                             if (done.size >= 2) Polyline(points = done, color = Color(0xFF8C968F), width = 12f, zIndex = 3f)
                         }
                     } else {
-                        Polyline(points = pts, color = Color.White.copy(alpha = 0.8f), width = 12f, zIndex = 1f)
-                        Polyline(points = pts, color = Ceva.Boia.copy(alpha = 0.85f), width = 6f, zIndex = 1.5f)
+                        segs.forEach { pts ->
+                            Polyline(points = pts, color = Color.White.copy(alpha = 0.8f), width = 12f, zIndex = 1f)
+                            Polyline(points = pts, color = Ceva.Boia.copy(alpha = 0.85f), width = 6f, zIndex = 1.5f)
+                        }
                     }
                 }
             }
             // caminho sendo gravado
             recording?.let { rec ->
-                if (rec.points.size >= 2) {
-                    val pts = rec.points.map { LatLng(it.lat, it.lng) }
+                rec.segments().filter { it.size >= 2 }.forEach { seg ->
+                    val pts = seg.map { LatLng(it.lat, it.lng) }
                     Polyline(points = pts, color = Color.White, width = 22f, zIndex = 4f)
                     Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 5f)
                 }
@@ -448,6 +453,8 @@ fun MapScreen(
                         onClick = {
                             if (!hasPermission) {
                                 permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                            } else if (!ignoringBattery(context)) {
+                                askBattery = true
                             } else {
                                 TrackRecorder.start(context)
                             }
@@ -477,13 +484,37 @@ fun MapScreen(
                 toSave = null
                 scope.launch {
                     repo.saveTrail(
-                        Trail(name = name, spotId = spotId, createdAt = rec.startedAt, durationMs = rec.elapsedMs(), distanceM = rec.distanceM, points = Geo.encode(rec.points)),
+                        Trail(name = name, spotId = spotId, createdAt = rec.startedAt, durationMs = rec.elapsedMs(), distanceM = rec.distanceM, points = Geo.encodeSegments(rec.segments())),
                         rec.marks.map { TrailMark(trailId = 0, latitude = it.p.lat, longitude = it.p.lng, type = it.type, label = it.label, at = it.at) },
                     )
                     Toast.makeText(context, "Caminho salvo", Toast.LENGTH_SHORT).show()
                 }
             },
             onDiscard = { toSave = null },
+        )
+    }
+
+    // Pede para tirar o app da economia de bateria (senão o GPS para com a tela desligada)
+    if (askBattery) {
+        AlertDialog(
+            onDismissRequest = { askBattery = false },
+            title = { Text("Gravar com a tela desligada") },
+            text = {
+                Text(
+                    "Para o celular não parar o GPS quando a tela apagar, libere o Ceva da economia de bateria.\n\n" +
+                        "Em celulares Samsung, confira também: Configurações › Aplicativos › Ceva › Bateria › Sem restrições."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    askBattery = false
+                    requestIgnoreBattery(context)
+                    TrackRecorder.start(context)
+                }) { Text("Liberar e gravar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { askBattery = false; TrackRecorder.start(context) }) { Text("Gravar assim mesmo") }
+            },
         )
     }
 
@@ -644,5 +675,22 @@ private fun SpotCard(spot: Spot, onNavigate: () -> Unit, onDetails: () -> Unit) 
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
+    }
+}
+
+private fun ignoringBattery(context: android.content.Context): Boolean =
+    (context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager)
+        .isIgnoringBatteryOptimizations(context.packageName)
+
+@android.annotation.SuppressLint("BatteryLife")
+private fun requestIgnoreBattery(context: android.content.Context) {
+    val direct = android.content.Intent(
+        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        android.net.Uri.parse("package:${context.packageName}"),
+    )
+    try {
+        context.startActivity(direct)
+    } catch (e: Exception) {
+        runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
     }
 }
