@@ -29,6 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -48,7 +50,12 @@ import java.text.Normalizer
 /** Todos os pontos, com busca por texto e filtro pelo peixe principal. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpotListScreen(onBack: () -> Unit, onOpenSpot: (Long) -> Unit) {
+fun SpotListScreen(
+    onBack: () -> Unit,
+    onOpenSpot: (Long) -> Unit,
+    onFollowTrail: (Long) -> Unit = {},
+    onEditTrail: (Long) -> Unit = {},
+) {
     val repo = rememberRepo()
     val spotsFlow = remember { repo.spots.observeAll() }
     val fishFlow = remember { repo.spots.observeMainFish() }
@@ -58,6 +65,9 @@ fun SpotListScreen(onBack: () -> Unit, onOpenSpot: (Long) -> Unit) {
     val counts by countsFlow.collectAsState(initial = emptyList())
     val countBySpot = remember(counts) { counts.associate { it.spotId to it.n } }
 
+    var tab by rememberSaveable { mutableStateOf(0) }
+    val trailCountFlow = remember { repo.trails.observeAll() }
+    val trailCount by trailCountFlow.collectAsState(initial = emptyList())
     var query by rememberSaveable { mutableStateOf("") }
     var fishFilter by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -70,7 +80,7 @@ fun SpotListScreen(onBack: () -> Unit, onOpenSpot: (Long) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Meus pontos") },
+                title = { Text("Meus pontos e caminhos") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar ao mapa") }
                 },
@@ -87,6 +97,18 @@ fun SpotListScreen(onBack: () -> Unit, onOpenSpot: (Long) -> Unit) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            TabRow(
+                selectedTabIndex = tab,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Pontos (${spots.size})") })
+                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Caminhos (${trailCount.size})") })
+            }
+            if (tab == 1) {
+                TrailsTab(onFollow = onFollowTrail, onEdit = onEditTrail)
+                return@Column
+            }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = query,

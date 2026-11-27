@@ -27,6 +27,8 @@ data class Trail(
     val durationMs: Long,
     val distanceM: Double,
     val points: String,
+    /** Cor da linha: 0..7 = cores prontas; outros valores = cor ARGB livre. */
+    val color: Int = 0,
 )
 
 /** Marcação no caminho: porteira, atoleiro, texto livre... */
@@ -71,6 +73,21 @@ interface TrailDao {
 
     @Query("SELECT * FROM trail_marks")
     fun observeAllMarks(): Flow<List<TrailMark>>
+
+    @Query("SELECT * FROM trail_marks WHERE trailId = :trailId ORDER BY at")
+    fun observeMarks(trailId: Long): Flow<List<TrailMark>>
+
+    @Query("SELECT * FROM trails WHERE id = :id")
+    fun observe(id: Long): Flow<Trail?>
+
+    @androidx.room.Update
+    suspend fun update(trail: Trail)
+
+    @Insert
+    suspend fun insertMark(mark: TrailMark): Long
+
+    @Delete
+    suspend fun deleteMark(mark: TrailMark)
 
     @Query("UPDATE trails SET spotId = NULL WHERE spotId = :spotId")
     suspend fun unlinkSpot(spotId: Long)

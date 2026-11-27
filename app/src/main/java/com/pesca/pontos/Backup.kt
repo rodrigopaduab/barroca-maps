@@ -51,7 +51,7 @@ object Backup {
             put("trails", JSONArray(trails.map { t ->
                 JSONObject().apply {
                     put("id", t.id); put("name", t.name); put("spotId", t.spotId ?: JSONObject.NULL)
-                    put("createdAt", t.createdAt); put("durationMs", t.durationMs); put("distanceM", t.distanceM); put("points", t.points)
+                    put("createdAt", t.createdAt); put("durationMs", t.durationMs); put("distanceM", t.distanceM); put("points", t.points); put("color", t.color)
                 }
             }))
             put("marks", JSONArray(marks.map { m ->
@@ -141,6 +141,7 @@ object Backup {
                         spotId = if (o.isNull("spotId")) null else o.getLong("spotId").takeIf { s -> s in spotIds },
                         createdAt = o.optLong("createdAt"), durationMs = o.optLong("durationMs"),
                         distanceM = o.optDouble("distanceM", 0.0), points = o.getString("points"),
+                        color = o.optInt("color"),
                     )
                 }
             }.orEmpty()

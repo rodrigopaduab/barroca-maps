@@ -51,6 +51,9 @@ class Repository(private val db: AppDatabase, val photos: PhotoStore) {
     /** Caminho que o mapa deve começar a seguir (pedido feito na tela do ponto). */
     var followTrailId by mutableStateOf<Long?>(null)
 
+    /** Caminho em que o usuário vai tocar no mapa para adicionar uma marcação. */
+    var addMarkTrailId by mutableStateOf<Long?>(null)
+
     /** Caminho lido de um QR, esperando confirmação. */
     var pendingTrailImport by mutableStateOf<com.pesca.pontos.trail.SharedTrail?>(null)
 

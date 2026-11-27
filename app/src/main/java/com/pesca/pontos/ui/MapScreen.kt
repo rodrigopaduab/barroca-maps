@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -105,6 +106,7 @@ fun MapScreen(
     onOpenSpot: (Long) -> Unit,
     onSettings: () -> Unit,
     onList: () -> Unit,
+    onEditTrail: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val repo = rememberRepo()
@@ -127,6 +129,10 @@ fun MapScreen(
     var toSave by remember { mutableStateOf<Recording?>(null) }
     var followId by rememberSaveable { mutableStateOf<Long?>(null) }
     var askBattery by remember { mutableStateOf(false) }
+    var selectedTrailId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var trailQr by remember { mutableStateOf<Pair<Trail, List<TrailMark>>?>(null) }
+    var newMarkPos by remember { mutableStateOf<P?>(null) }
+    val addMarkTrailId = repo.addMarkTrailId
 
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(BRASIL, 4f) }
 
@@ -214,7 +220,20 @@ fun MapScreen(
                 rotationGesturesEnabled = !compassMode,
             ),
             contentPadding = PaddingValues(top = 88.dp, bottom = 120.dp),
-            onMapLongClick = { latLng -> if (recording == null && followId == null) onNewSpot(latLng.latitude, latLng.longitude) },
+            onMapLongClick = { latLng -> if (recording == null && followId == null && addMarkTrailId == null) onNewSpot(latLng.latitude, latLng.longitude) },
+            onMapClick = { latLng ->
+                val tid = addMarkTrailId ?: return@GoogleMap
+                val t = trails.firstOrNull { it.id == tid } ?: return@GoogleMap
+                val path = Geo.decode(t.points)
+                val pr = Geo.progress(path, P(latLng.latitude, latLng.longitude))
+                if (pr == null || pr.offPathM > 150) {
+                    Toast.makeText(context, "Toque mais perto da linha do caminho", Toast.LENGTH_SHORT).show()
+                } else {
+                    val a = path[pr.segment]
+                    val b = path[pr.segment + 1]
+                    newMarkPos = P(a.lat + (b.lat - a.lat) * pr.t, a.lng + (b.lng - a.lng) * pr.t)
+                }
+            },
         ) {
             // caminhos salvos (finos) e o que está sendo seguido (destacado)
             trails.forEach { t ->
@@ -223,16 +242,22 @@ fun MapScreen(
                     if (t.id == followId) {
                         segs.forEach { pts ->
                             Polyline(points = pts, color = Color.White, width = 22f, zIndex = 1f)
-                            Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 2f)
+                            Polyline(points = pts, color = pinComposeColor(t.color), width = 12f, zIndex = 2f)
                         }
                         progress?.let { pr ->
                             val done = Geo.traveledPart(followPath, pr).map { LatLng(it.lat, it.lng) }
                             if (done.size >= 2) Polyline(points = done, color = Color(0xFF8C968F), width = 12f, zIndex = 3f)
                         }
                     } else {
+                        val lineColor = pinComposeColor(t.color)
+                        val highlight = t.id == selectedTrailId || t.id == addMarkTrailId
                         segs.forEach { pts ->
-                            Polyline(points = pts, color = Color.White.copy(alpha = 0.8f), width = 12f, zIndex = 1f)
-                            Polyline(points = pts, color = Ceva.Boia.copy(alpha = 0.85f), width = 6f, zIndex = 1.5f)
+                            Polyline(points = pts, color = Color.White.copy(alpha = 0.85f), width = if (highlight) 26f else 18f, zIndex = 1f)
+                            Polyline(
+                                points = pts, color = lineColor, width = if (highlight) 14f else 9f, zIndex = 1.5f,
+                                clickable = recording == null && followId == null && addMarkTrailId == null,
+                                onClick = { selectedTrailId = t.id },
+                            )
                         }
                     }
                 }
@@ -341,6 +366,19 @@ fun MapScreen(
             .statusBarsPadding()
             .padding(top = 84.dp)
         when {
+            addMarkTrailId != null -> Surface(
+                color = Ceva.Boia, contentColor = Ceva.Mata, shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.then(topMod).padding(start = 12.dp, end = 72.dp),
+            ) {
+                Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Toque no caminho onde a marcação deve ficar", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        val id = addMarkTrailId
+                        repo.addMarkTrailId = null
+                        onEditTrail(id)
+                    }) { Text("Cancelar", color = Ceva.Mata) }
+                }
+            }
             recording != null -> RecordingBanner(recording!!, Modifier.then(topMod).padding(start = 12.dp, end = 72.dp))
             followTrail != null && progress != null -> Column(topMod.padding(start = 12.dp, end = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val nextPoint = followPath.getOrNull(progress.segment + 1)
@@ -388,6 +426,7 @@ fun MapScreen(
         // Parte de baixo
         val bottomMod = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
         when {
+            addMarkTrailId != null -> Unit
             recording != null -> RecordingControls(
                 rec = recording!!,
                 onMark = { type, label ->
@@ -517,6 +556,40 @@ fun MapScreen(
             },
         )
     }
+
+    // Escolher o tipo da marcação nova
+    newMarkPos?.let { p ->
+        AddMarkDialog(onDismiss = { newMarkPos = null }) { type, label ->
+            val tid = addMarkTrailId
+            newMarkPos = null
+            if (tid != null) scope.launch {
+                repo.trails.insertMark(TrailMark(trailId = tid, latitude = p.lat, longitude = p.lng, type = type, label = label))
+                repo.addMarkTrailId = null
+                Toast.makeText(context, "Marcação adicionada", Toast.LENGTH_SHORT).show()
+                onEditTrail(tid)
+            }
+        }
+    }
+
+    // Cartão do caminho tocado no mapa
+    trails.firstOrNull { it.id == selectedTrailId }?.let { t ->
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { selectedTrailId = null },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            TrailSheetContent(
+                trail = t,
+                spot = spots.firstOrNull { it.id == t.spotId },
+                marks = allMarks.count { it.trailId == t.id },
+                onFollow = { selectedTrailId = null; followId = t.id },
+                onEdit = { selectedTrailId = null; onEditTrail(t.id) },
+                onQr = { scope.launch { trailQr = t to repo.trails.marks(t.id) } },
+            )
+        }
+    }
+    trailQr?.let { (t, m) -> TrailQrDialog(t, m, spots.firstOrNull { it.id == t.spotId }) { trailQr = null } }
 
     // Caminho recebido por QR
     repo.pendingTrailImport?.let { t ->

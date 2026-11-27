@@ -36,6 +36,8 @@ object Routes {
     const val MAP = "map"
     const val SETTINGS = "settings"
     const val LIST = "list"
+    const val EDIT_TRAIL = "trail/{trailId}/edit"
+    fun editTrail(id: Long) = "trail/$id/edit"
     const val NEW_SPOT = "newspot?lat={lat}&lng={lng}"
     const val SPOT = "spot/{spotId}"
     const val EDIT_SPOT = "spot/{spotId}/edit"
@@ -61,6 +63,7 @@ fun AppNav() {
                 onOpenSpot = { id -> nav.navigate(Routes.spot(id)) },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
                 onList = { nav.navigate(Routes.LIST) },
+                onEditTrail = { id -> nav.navigate(Routes.editTrail(id)) },
             )
         }
 
@@ -68,6 +71,23 @@ fun AppNav() {
             SpotListScreen(
                 onBack = { nav.popBackStack() },
                 onOpenSpot = { id -> nav.navigate(Routes.spot(id)) },
+                onFollowTrail = { id ->
+                    app.repo.followTrailId = id
+                    nav.popBackStack(Routes.MAP, inclusive = false)
+                },
+                onEditTrail = { id -> nav.navigate(Routes.editTrail(id)) },
+            )
+        }
+
+        composable(Routes.EDIT_TRAIL, arguments = listOf(navArgument("trailId") { type = NavType.LongType })) { entry ->
+            val id = entry.arguments!!.getLong("trailId")
+            TrailEditScreen(
+                trailId = id,
+                onBack = { nav.popBackStack() },
+                onAddMark = {
+                    app.repo.addMarkTrailId = id
+                    nav.popBackStack(Routes.MAP, inclusive = false)
+                },
             )
         }
 
