@@ -9,6 +9,9 @@ enum class AppTheme(val label: String, val description: String) {
     PADRAO("Padrão", "Verde-mata e laranja-boia."),
     CONTRASTE("Alto contraste", "Preto, branco e amarelo para ler no sol forte ou com baixa visão."),
     NOITE("Noite (luz vermelha)", "Tons de vermelho preservam a visão no escuro, para pescar à noite."),
+    VERMELHO_VERDE("Daltonismo vermelho-verde", "Azul e amarelo, para protanopia e deuteranopia (quem confunde vermelho e verde)."),
+    AZUL_AMARELO("Daltonismo azul-amarelo", "Grafite e rosa, para tritanopia (quem confunde azul e amarelo)."),
+    SEM_CORES("Sem cores", "Preto, branco e cinza, para acromatopsia (quem enxerga sem cores)."),
 }
 
 /** Preferências do app. Os campos são estado do Compose: mudar aqui já redesenha a tela. */

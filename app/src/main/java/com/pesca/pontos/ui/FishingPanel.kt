@@ -23,6 +23,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,10 +53,11 @@ import java.util.Locale
 import kotlin.math.abs
 
 // O painel fica sempre escuro sobre o mapa (legível em cima do satélite), nas cores do tema
-private val PanelBg = Color(0xF210241B)
-private val PanelText = Color(0xFFF4F6F1)
-private val PanelMuted = Color(0xFFB8C4BC)
-private val PanelAccent = Color(0xFFFF7A2E)
+private val PanelBg: Color @Composable get() = MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
+private val PanelText: Color @Composable get() = MaterialTheme.colorScheme.onPrimary
+private val PanelMuted: Color @Composable get() = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+private val PanelAccent: Color @Composable get() = MaterialTheme.colorScheme.secondary
+private val PanelOnAccent: Color @Composable get() = MaterialTheme.colorScheme.onSecondary
 
 private val hm = DateTimeFormatter.ofPattern("HH:mm")
 private val longDate = DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale("pt", "BR"))
@@ -140,7 +142,7 @@ fun FishingPanel(lat: Double?, lng: Double?, modifier: Modifier = Modifier) {
                         }
                         FilledIconButton(
                             onClick = { settings.updatePanelOpen(false) },
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = PanelAccent, contentColor = Color(0xFF10241B)),
+                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = PanelAccent, contentColor = PanelOnAccent),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.size(36.dp),
                         ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Recolher painel") }
@@ -221,7 +223,7 @@ fun FishingPanel(lat: Double?, lng: Double?, modifier: Modifier = Modifier) {
                                 Text(
                                     if (p.major) "Maior" else "Menor",
                                     fontSize = 10.5.sp, fontWeight = FontWeight.Bold,
-                                    color = if (p.major) Color(0xFF10241B) else PanelText,
+                                    color = if (p.major) PanelOnAccent else PanelText,
                                     modifier = Modifier
                                         .background(if (p.major) PanelAccent else PanelText.copy(alpha = 0.14f), RoundedCornerShape(50))
                                         .padding(horizontal = 7.dp, vertical = 2.dp),
@@ -239,7 +241,7 @@ fun FishingPanel(lat: Double?, lng: Double?, modifier: Modifier = Modifier) {
                     }
                     hint?.let {
                         Spacer(Modifier.size(6.dp))
-                        Text(it, fontSize = 11.5.sp, color = Color(0xFFFF9A5C), fontWeight = FontWeight.SemiBold)
+                        Text(it, fontSize = 11.5.sp, color = PanelAccent, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -297,12 +299,14 @@ private fun Grid(vararg cells: Pair<String, String>) {
 /** Lua desenhada conforme a fase (0 = nova, 0.5 = cheia). */
 @Composable
 private fun MoonIcon(phase: Double, modifier: Modifier) {
+    val litColor = PanelText
+    val darkColor = PanelText.copy(alpha = 0.18f)
     Canvas(modifier) {
         val r = size.minDimension / 2
         val c = Offset(size.width / 2, size.height / 2)
-        drawCircle(Color(0xFF33463C), r, c)
+        drawCircle(darkColor, r, c)
         // parte iluminada: metade + elipse (terminador)
-        val lit = PanelText
+        val lit = litColor
         val waxing = phase < 0.5
         val k = cos2(phase) // 1 = nova, -1 = cheia
         val path = androidx.compose.ui.graphics.Path().apply {

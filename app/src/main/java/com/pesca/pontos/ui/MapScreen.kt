@@ -268,7 +268,7 @@ fun MapScreen(
                 rec.segments().filter { it.size >= 2 }.forEach { seg ->
                     val pts = seg.map { LatLng(it.lat, it.lng) }
                     Polyline(points = pts, color = Color.White, width = 22f, zIndex = 4f)
-                    Polyline(points = pts, color = Ceva.Boia, width = 12f, zIndex = 5f)
+                    Polyline(points = pts, color = MaterialTheme.colorScheme.secondary, width = 12f, zIndex = 5f)
                 }
                 rec.marks.forEachIndexed { i, m ->
                     key("rec-mark-$i") {
@@ -330,7 +330,7 @@ fun MapScreen(
                     Text("Barroca", style = BrandStyle, maxLines = 1)
                     Text(
                         "MAPS",
-                        color = Ceva.Boia,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 3.sp,
@@ -364,7 +364,7 @@ fun MapScreen(
             .padding(top = 84.dp)
         when {
             addMarkTrailId != null -> Surface(
-                color = Ceva.Boia, contentColor = Ceva.Mata, shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary, shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.then(topMod).padding(start = 12.dp, end = 72.dp),
             ) {
                 Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -373,7 +373,7 @@ fun MapScreen(
                         val id = addMarkTrailId
                         repo.addMarkTrailId = null
                         onEditTrail(id)
-                    }) { Text("Cancelar", color = Ceva.Mata) }
+                    }) { Text("Cancelar", color = MaterialTheme.colorScheme.onSecondary) }
                 }
             }
             recording != null -> RecordingBanner(recording!!, Modifier.then(topMod).padding(start = 12.dp, end = 72.dp))
@@ -496,7 +496,7 @@ fun MapScreen(
                             }
                         },
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Ceva.Mata, contentColor = Ceva.Nevoa),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         contentPadding = PaddingValues(horizontal = 8.dp),
                         modifier = Modifier.weight(1f).height(56.dp),
                     ) {

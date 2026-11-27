@@ -75,7 +75,7 @@ import com.pesca.pontos.trail.Recording
 import com.pesca.pontos.trail.TrailShare
 import kotlinx.coroutines.delay
 
-private val Dark = Color(0xF010241B)
+private val Dark: Color @Composable get() = MaterialTheme.colorScheme.primary.copy(alpha = 0.94f)
 
 /** Tipos de marcação no caminho. */
 data class MarkType(val key: String, val label: String, val icon: ImageVector)
@@ -114,7 +114,7 @@ private fun minutes(ms: Long) = "${(ms / 60_000).coerceAtLeast(0)} min"
 fun RecordingBanner(rec: Recording, modifier: Modifier = Modifier) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
-    Surface(color = Dark, contentColor = Ceva.Nevoa, shape = RoundedCornerShape(16.dp), modifier = modifier) {
+    Surface(color = Dark, contentColor = MaterialTheme.colorScheme.onPrimary, shape = RoundedCornerShape(16.dp), modifier = modifier) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
@@ -126,7 +126,7 @@ fun RecordingBanner(rec: Recording, modifier: Modifier = Modifier) {
                 Text(if (rec.paused) "Gravação pausada" else "Gravando caminho", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
                     "${Geo.formatDistance(rec.distanceM)} · ${minutes(rec.elapsedMs(now))} · ${rec.marks.size} marcaç${if (rec.marks.size == 1) "ão" else "ões"}",
-                    fontSize = 12.sp, color = Color(0xFFB8C4BC),
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f),
                 )
             }
         }
@@ -276,15 +276,15 @@ private fun Stat(value: String, label: String, modifier: Modifier) {
 
 @Composable
 fun FollowTop(remainingM: Double, bearingToNext: Float?, destination: String, modifier: Modifier = Modifier) {
-    Surface(color = Ceva.Boia, contentColor = Ceva.Mata, shape = RoundedCornerShape(18.dp), modifier = modifier) {
+    Surface(color = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary, shape = RoundedCornerShape(18.dp), modifier = modifier) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .size(46.dp)
-                    .background(Ceva.Nevoa, RoundedCornerShape(14.dp)),
+                    .background(MaterialTheme.colorScheme.background, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Navigation, "Direção", tint = Ceva.Mata, modifier = Modifier.size(28.dp).rotate(bearingToNext ?: 0f))
+                Icon(Icons.Filled.Navigation, "Direção", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(28.dp).rotate(bearingToNext ?: 0f))
             }
             Spacer(Modifier.width(12.dp))
             Column {
@@ -383,11 +383,13 @@ fun CompassButton(mapBearing: Float, compassMode: Boolean, onClick: () -> Unit) 
         Surface(
             onClick = onClick,
             shape = CircleShape,
-            color = if (compassMode) Ceva.Boia else Dark,
+            color = if (compassMode) MaterialTheme.colorScheme.secondary else Dark,
             shadowElevation = 4.dp,
             modifier = Modifier.size(46.dp),
         ) {
-            val north = if (compassMode) Ceva.Mata else Ceva.Boia
+            val north = if (compassMode) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.secondary
+            val south = if (compassMode) MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.45f) else MaterialTheme.colorScheme.onPrimary
+            val hub = MaterialTheme.colorScheme.primary
             Canvas(Modifier.fillMaxSize().rotate(-mapBearing)) {
                 val cx = size.width / 2
                 val cy = size.height / 2
@@ -395,14 +397,14 @@ fun CompassButton(mapBearing: Float, compassMode: Boolean, onClick: () -> Unit) 
                 val n = Path().apply { moveTo(cx, cy - r * 0.62f); lineTo(cx + r * 0.2f, cy); lineTo(cx - r * 0.2f, cy); close() }
                 val s = Path().apply { moveTo(cx, cy + r * 0.62f); lineTo(cx + r * 0.2f, cy); lineTo(cx - r * 0.2f, cy); close() }
                 drawPath(n, north)
-                drawPath(s, Ceva.Nevoa)
-                drawCircle(Ceva.Mata, r * 0.09f, Offset(cx, cy))
+                drawPath(s, south)
+                drawCircle(hub, r * 0.09f, Offset(cx, cy))
             }
         }
         Spacer(Modifier.height(3.dp))
         Text(
             if (compassMode) "Bússola" else "Norte",
-            color = Ceva.Nevoa, fontSize = 9.5.sp, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimary, fontSize = 9.5.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .background(Dark, RoundedCornerShape(50))
                 .padding(horizontal = 7.dp, vertical = 1.dp),
@@ -414,7 +416,7 @@ fun CompassButton(mapBearing: Float, compassMode: Boolean, onClick: () -> Unit) 
 fun CenterButton(onClick: () -> Unit) {
     Surface(onClick = onClick, shape = CircleShape, color = Dark, shadowElevation = 4.dp, modifier = Modifier.size(46.dp)) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Navigation, "Centralizar em mim", tint = Ceva.Boia, modifier = Modifier.size(22.dp).rotate(45f))
+            Icon(Icons.Filled.Navigation, "Centralizar em mim", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp).rotate(45f))
         }
     }
 }
