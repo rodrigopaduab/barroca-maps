@@ -25,6 +25,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCode2
@@ -173,7 +175,7 @@ fun TrailsTab(
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
                 placeholder = { Text("Buscar caminho pelo nome") },
-                leadingIcon = { Icon(androidx.compose.material.icons.Icons.Default.Search, null) },
+                leadingIcon = { Icon(Icons.Filled.Search, null) },
                 singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             )
             Text(
@@ -468,7 +470,7 @@ fun AddMarkDialog(onDismiss: () -> Unit, onPick: (type: String, label: String) -
                     MARK_TYPES.forEach { t ->
                         AssistChip(onClick = { onPick(t.key, t.label) }, label = { Text(t.label) }, leadingIcon = { Icon(t.icon, null, Modifier.size(16.dp)) })
                     }
-                    AssistChip(onClick = { writing = true }, label = { Text("Escrever…") }, leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Edit, null, Modifier.size(16.dp)) })
+                    AssistChip(onClick = { writing = true }, label = { Text("Escrever…") }, leadingIcon = { Icon(Icons.Filled.Edit, null, Modifier.size(16.dp)) })
                 }
             } else {
                 OutlinedTextField(value = text, onValueChange = { text = it.take(30) }, singleLine = true, placeholder = { Text("Ex.: Cerca elétrica") })
