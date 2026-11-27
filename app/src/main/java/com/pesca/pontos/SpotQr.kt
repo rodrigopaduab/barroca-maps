@@ -99,7 +99,7 @@ object SpotQr {
         c.drawText(name.toString(), 60f, 130f, title)
 
         val small = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFF7A2E.toInt(); textSize = 40f; typeface = Typeface.DEFAULT_BOLD }
-        c.drawText("Escaneie com o app Ceva ou com a câmera", 60f, 1180f, small)
+        c.drawText("Escaneie com o Barroca Maps ou com a câmera", 60f, 1180f, small)
         return out
     }
 

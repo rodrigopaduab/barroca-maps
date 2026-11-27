@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -326,17 +327,13 @@ fun MapScreen(
                 CevaMark(Modifier.size(width = 22.dp, height = 28.dp))
                 Spacer(Modifier.size(4.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("ceva", style = BrandStyle)
+                    Text("Barroca", style = BrandStyle, maxLines = 1)
                     Text(
-                        when (spots.size) {
-                            0 -> "Segure o dedo no mapa para marcar"
-                            1 -> "1 ponto salvo"
-                            else -> "${spots.size} pontos salvos"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        "MAPS",
+                        color = Ceva.Boia,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 3.sp,
                     )
                 }
                 FilledIconButton(
@@ -540,8 +537,8 @@ fun MapScreen(
             title = { Text("Gravar com a tela desligada") },
             text = {
                 Text(
-                    "Para o celular não parar o GPS quando a tela apagar, libere o Ceva da economia de bateria.\n\n" +
-                        "Em celulares Samsung, confira também: Configurações › Aplicativos › Ceva › Bateria › Sem restrições."
+                    "Para o celular não parar o GPS quando a tela apagar, libere o Barroca Maps da economia de bateria.\n\n" +
+                        "Em celulares Samsung, confira também: Configurações › Aplicativos › Barroca Maps › Bateria › Sem restrições."
                 )
             },
             confirmButton = {

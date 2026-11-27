@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit
  */
 object DriveBackup {
     private const val SCOPE = "https://www.googleapis.com/auth/drive.file"
+    // mantém a pasta antiga para não dividir os backups em duas pastas
     private const val FOLDER = "Ceva Backups"
     private const val KEEP = 5
     private const val API = "https://www.googleapis.com/drive/v3"
@@ -66,11 +67,11 @@ object DriveBackup {
         val app = context.applicationContext as PescaApp
         val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
         val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).format(Date())
-        val file = File(context.cacheDir, "drive-ceva-backup-$stamp.zip")
+        val file = File(context.cacheDir, "drive-barroca-backup-$stamp.zip")
         try {
             val info = Backup.export(context, app.repo, Uri.fromFile(file), version)
             val folder = folderId(token)
-            upload(token, folder, file, "ceva-backup-$stamp.zip")
+            upload(token, folder, file, "barroca-maps-backup-$stamp.zip")
             // mantém só os mais recentes
             list(token, folder).drop(KEEP).forEach { runCatching { delete(token, it.id) } }
             app.settings.markDriveBackup(info.createdAt)

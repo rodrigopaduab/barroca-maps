@@ -62,7 +62,7 @@ fun QrDialog(spot: Spot, onDismiss: () -> Unit) {
                     )
                 }
                 Text(
-                    "Quem tem o Ceva lê pelo botão de QR no mapa e recebe o ponto com nome e informações. " +
+                    "Quem tem o Barroca Maps lê pelo botão de QR no mapa e recebe o ponto com nome e informações. " +
                         "Quem não tem pode ler com a câmera: abre o Google Maps no local. Fotos e peixes não vão junto.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

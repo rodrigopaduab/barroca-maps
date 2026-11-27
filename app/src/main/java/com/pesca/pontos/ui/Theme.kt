@@ -99,8 +99,8 @@ private val CevaType = BaseType.copy(
     labelLarge = BaseType.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
 )
 
-/** Estilo do nome "ceva" no topo do mapa. */
-val BrandStyle = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, letterSpacing = (-0.5).sp)
+/** Estilo do nome "Barroca" no topo do mapa. */
+val BrandStyle = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, letterSpacing = (-0.4).sp, lineHeight = 22.sp)
 
 @Composable
 fun CevaTheme(theme: AppTheme, bigText: Boolean, content: @Composable () -> Unit) {

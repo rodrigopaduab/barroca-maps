@@ -146,7 +146,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             Text(
-                "Ceva $version · seus pontos ficam só no seu celular",
+                "Barroca Maps $version · seus pontos ficam só no seu celular",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
@@ -240,7 +240,7 @@ private fun BackupCard(version: String) {
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary) }
         Button(
             enabled = busy == null,
-            onClick = { saveLauncher.launch("ceva-backup-${LocalDate.now()}.zip") },
+            onClick = { saveLauncher.launch("barroca-maps-backup-${LocalDate.now()}.zip") },
             modifier = Modifier.fillMaxWidth().height(50.dp),
         ) { Text("Salvar backup") }
         OutlinedButton(
@@ -293,7 +293,7 @@ private fun ImportTrailCard() {
                 runCatching { context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } }.getOrNull()
             }
             val t = text?.let { com.pesca.pontos.trail.TrailShare.decodeFile(it) }
-            message = if (t == null) "Esse arquivo não é um caminho do Ceva." else {
+            message = if (t == null) "Esse arquivo não é um caminho do Barroca Maps." else {
                 repo.importTrail(t)
                 "Caminho \"${t.name}\" recebido."
             }
@@ -302,7 +302,7 @@ private fun ImportTrailCard() {
     SettingsCard {
         Text("Receber caminho por arquivo", style = MaterialTheme.typography.titleSmall)
         Text(
-            "Abra aqui o arquivo de caminho que alguém te mandou (ceva-caminho-....json).",
+            "Abra aqui o arquivo de caminho que alguém te mandou (barroca-caminho-....json ou ceva-caminho-....json).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -429,7 +429,7 @@ private fun DriveCard() {
                     withToken { token ->
                         try {
                             backups = DriveBackup.listBackups(token)
-                            if (backups.isNullOrEmpty()) message = "Nenhum backup do Ceva no seu Drive."
+                            if (backups.isNullOrEmpty()) message = "Nenhum backup do app no seu Drive."
                         } catch (e: Exception) {
                             message = e.message
                         }

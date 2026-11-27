@@ -40,13 +40,13 @@ jobs:
 
       - name: Nomear o APK
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then NAME="ceva-${GITHUB_REF_NAME}.apk"; else NAME="ceva-teste.apk"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then NAME="barroca-maps-${GITHUB_REF_NAME}.apk"; else NAME="barroca-maps-teste.apk"; fi
           cp app/build/outputs/apk/debug/app-debug.apk "$NAME"
           echo "APK=$NAME" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ceva-apk
+          name: barroca-maps-apk
           path: ${{ env.APK }}
 
       - name: Atualizar versão de teste
@@ -57,10 +57,10 @@ jobs:
           gh release delete teste --cleanup-tag -y || true
           gh release create teste "$APK" --prerelease --target "$GITHUB_SHA" \
             --title "Versão de teste (última alteração)" \
-            --notes "Compilada automaticamente do commit ${GITHUB_SHA::7}. Baixe o arquivo ceva-teste.apk e instale no celular."
+            --notes "Compilada automaticamente do commit ${GITHUB_SHA::7}. Baixe o arquivo barroca-maps-teste.apk e instale no celular."
 
       - name: Publicar versão oficial
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "$APK" --title "Ceva ${GITHUB_REF_NAME#v}" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "$APK" --title "Barroca Maps ${GITHUB_REF_NAME#v}" --generate-notes

@@ -190,7 +190,7 @@ class RecordingService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Ceva está gravando o caminho")
+            .setContentTitle("Barroca Maps está gravando o caminho")
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

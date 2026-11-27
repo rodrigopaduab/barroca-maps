@@ -1,4 +1,4 @@
-# Ceva
+# Barroca Maps
 
 App Android para marcar pontos de pesca no mapa, com fotos, informações e os peixes pegos em cada ponto. Tudo fica salvo no celular e funciona sem internet. O botão **Ir até lá** abre o Google Maps já com a rota.
 

@@ -43,7 +43,7 @@ object Backup {
 
         val json = JSONObject().apply {
             put("format", FORMAT)
-            put("app", "Ceva")
+            put("app", "Barroca Maps")
             put("appVersion", appVersion)
             put("createdAt", System.currentTimeMillis())
             put("spots", JSONArray(spots.map(::spotToJson)))
@@ -92,7 +92,7 @@ object Backup {
                 }
             }
         }
-        val j = json ?: throw BackupException("Esse arquivo não é um backup do Ceva.")
+        val j = json ?: throw BackupException("Esse arquivo não é um backup do Barroca Maps.")
         Info(
             createdAt = j.optLong("createdAt"),
             spots = j.getJSONArray("spots").length(),
@@ -124,8 +124,8 @@ object Backup {
                     }
                 }
             }
-            val j = json ?: throw BackupException("Esse arquivo não é um backup do Ceva.")
-            if (j.optInt("format") > FORMAT) throw BackupException("Backup de uma versão mais nova do app. Atualize o Ceva primeiro.")
+            val j = json ?: throw BackupException("Esse arquivo não é um backup do Barroca Maps.")
+            if (j.optInt("format") > FORMAT) throw BackupException("Backup de uma versão mais nova do app. Atualize o Barroca Maps primeiro.")
 
             fun localPath(name: String) = File(photosDir, File(name).name).absolutePath
             val spots = j.getJSONArray("spots").let { arr -> List(arr.length()) { spotFromJson(arr.getJSONObject(it), ::localPath) } }

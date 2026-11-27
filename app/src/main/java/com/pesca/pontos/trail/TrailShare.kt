@@ -133,7 +133,7 @@ object TrailShare {
         val title = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF4F6F1.toInt(); textSize = 60f; typeface = Typeface.DEFAULT_BOLD }
         c.drawText(TextUtils.ellipsize("Caminho: ${trail.name}", title, w - 100f, TextUtils.TruncateAt.END).toString(), 50f, 120f, title)
         val small = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFF7A2E.toInt(); textSize = 40f; typeface = Typeface.DEFAULT_BOLD }
-        c.drawText("Leia com o app Ceva (botão de QR no mapa)", 50f, 1220f, small)
+        c.drawText("Leia com o Barroca Maps (botão de QR no mapa)", 50f, 1220f, small)
         share(context, "caminho_qr.png", "image/png", "Caminho de pesca: ${trail.name}") { f ->
             f.outputStream().use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
@@ -143,7 +143,7 @@ object TrailShare {
 
     fun shareFile(context: Context, trail: Trail, marks: List<TrailMark>, spot: Spot?) {
         val json = JSONObject().apply {
-            put("app", "Ceva"); put("type", "caminho"); put("v", 1)
+            put("app", "Barroca Maps"); put("type", "caminho"); put("v", 1)
             put("name", trail.name); put("durationMs", trail.durationMs); put("points", trail.points)
             put("marks", JSONArray(marks.map {
                 JSONObject().apply { put("type", it.type); put("label", it.label); put("lat", it.latitude); put("lng", it.longitude) }
@@ -156,7 +156,7 @@ object TrailShare {
             }
         }
         val safe = trail.name.replace(Regex("[^A-Za-z0-9_-]+"), "_").take(40).ifEmpty { "caminho" }
-        share(context, "ceva-caminho-$safe.json", "application/json", "Caminho de pesca: ${trail.name}") { f ->
+        share(context, "barroca-caminho-$safe.json", "application/json", "Caminho de pesca: ${trail.name}") { f ->
             f.writeText(json.toString())
         }
     }

@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Ceva"
+rootProject.name = "BarrocaMaps"
 include(":app")

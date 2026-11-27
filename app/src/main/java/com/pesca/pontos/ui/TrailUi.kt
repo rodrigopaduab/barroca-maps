@@ -359,7 +359,7 @@ fun TrailQrDialog(trail: Trail, marks: List<TrailMark>, spot: Spot?, onDismiss: 
                     Image(bmp, "QR code do caminho", filterQuality = FilterQuality.None, modifier = Modifier.size(260.dp))
                 }
                 Text(
-                    "Quem tem o Ceva lê pelo botão de QR no mapa e recebe o caminho, as marcações e o ponto. Para caminhos longos, envie como arquivo.",
+                    "Quem tem o Barroca Maps lê pelo botão de QR no mapa e recebe o caminho, as marcações e o ponto. Para caminhos longos, envie como arquivo.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                 )
                 Button(onClick = { TrailShare.shareQrImage(context, trail, content) }, modifier = Modifier.fillMaxWidth().height(50.dp)) {

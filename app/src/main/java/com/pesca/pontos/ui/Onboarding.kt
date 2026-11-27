@@ -64,7 +64,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
         ) {
             Spacer(Modifier.height(24.dp))
             CevaMark(Modifier.size(width = 64.dp, height = 80.dp))
-            Text("Bem-vindo ao ceva", color = Ceva.Nevoa, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Bem-vindo ao Barroca Maps", color = Ceva.Nevoa, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
             Text(
                 "Seus pontos de pesca, caminhos e peixes, guardados no seu celular. Para funcionar direito, o app precisa de algumas permissões:",
                 color = Ceva.Nevoa.copy(alpha = 0.8f), fontSize = 16.sp,
