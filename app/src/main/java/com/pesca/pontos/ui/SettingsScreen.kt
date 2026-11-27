@@ -365,7 +365,7 @@ private fun DriveCard() {
         Text("Google Drive", style = MaterialTheme.typography.titleSmall)
         if (!settings.driveConnected) {
             Text(
-                "Guarda uma cópia dos pontos, peixes, caminhos e fotos numa pasta \"Ceva Backups\" no seu Google Drive. " +
+                "Guarda uma cópia dos pontos, peixes, caminhos e fotos numa pasta \"Barroca Maps Backups\" no seu Google Drive. " +
                     "O app só enxerga os arquivos que ele mesmo criou.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

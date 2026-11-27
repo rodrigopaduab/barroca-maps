@@ -30,13 +30,14 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Backup no Google Drive do usuário, numa pasta "Ceva Backups" que ele pode ver no Drive.
+ * Backup no Google Drive do usuário, numa pasta "Barroca Maps Backups" que ele pode ver no Drive.
  * Usa só a permissão "drive.file": o app enxerga apenas os arquivos que ele mesmo criou.
  */
 object DriveBackup {
     private const val SCOPE = "https://www.googleapis.com/auth/drive.file"
-    // mantém a pasta antiga para não dividir os backups em duas pastas
-    private const val FOLDER = "Ceva Backups"
+    private const val FOLDER = "Barroca Maps Backups"
+    /** Pasta usada quando o app se chamava Ceva: só lida, para restaurar backups antigos. */
+    private const val OLD_FOLDER = "Ceva Backups"
     private const val KEEP = 5
     private const val API = "https://www.googleapis.com/drive/v3"
     private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3"
@@ -81,8 +82,11 @@ object DriveBackup {
         }
     }
 
+    /** Backups da pasta atual e da pasta antiga ("Ceva Backups"), do mais novo para o mais antigo. */
     suspend fun listBackups(token: String): List<RemoteBackup> = withContext(Dispatchers.IO) {
-        list(token, folderId(token))
+        val current = list(token, folderId(token))
+        val old = findFolder(token, OLD_FOLDER)?.let { list(token, it) }.orEmpty()
+        (current + old).sortedByDescending { it.createdAt }
     }
 
     /** Baixa o backup escolhido e restaura (troca tudo do celular). */
@@ -129,13 +133,17 @@ object DriveBackup {
 
     // ---------------- Drive REST ----------------
 
-    private fun folderId(token: String): String {
+    private fun findFolder(token: String, name: String): String? {
         val q = URLEncoder.encode(
-            "name = '$FOLDER' and mimeType = 'application/vnd.google-apps.folder' and trashed = false", "UTF-8"
+            "name = '$name' and mimeType = 'application/vnd.google-apps.folder' and trashed = false", "UTF-8"
         )
         val found = request(token, "GET", "$API/files?q=$q&fields=files(id)&spaces=drive")
         val files = JSONObject(found).getJSONArray("files")
-        if (files.length() > 0) return files.getJSONObject(0).getString("id")
+        return if (files.length() > 0) files.getJSONObject(0).getString("id") else null
+    }
+
+    private fun folderId(token: String): String {
+        findFolder(token, FOLDER)?.let { return it }
         val body = JSONObject().put("name", FOLDER).put("mimeType", "application/vnd.google-apps.folder").toString()
         return JSONObject(request(token, "POST", "$API/files?fields=id", body, "application/json")).getString("id")
     }
